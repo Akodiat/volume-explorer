@@ -35,6 +35,10 @@ const MAX_PREFETCH_CHUNKS = 25;
 const PLAYBACK_INTERVAL = 80;
 
 const TEST_DATA: Record<string, TestDataSpec> = {
+  zarrQimEscargot: {
+    url: "https://platform.qim.dk/qim-public/Escargot/Escargot.zarr",
+    type: VolumeFileFormat.ZARR,
+  },
   cellpainting: {
     type: VolumeFileFormat.TIFF,
     url: [
