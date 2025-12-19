@@ -117,6 +117,7 @@ export interface IDrawableObject {
   setResolution(x: number, y: number): void;
   setAxisClip(axis: "x" | "y" | "z", minval: number, maxval: number, _isOrthoAxis: boolean): void;
   updateClipRegion(xmin: number, xmax: number, ymin: number, ymax: number, zmin: number, zmax: number): void;
+  updateCropRegion(cropXmin: number, cropXmax: number, cropYmin: number, cropYmax: number, cropZmin: number, cropZmax: number): void;
 }
 
 export interface FuseChannel {

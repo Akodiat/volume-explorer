@@ -474,12 +474,25 @@ function setupGui() {
     });
 
     const cropping = gui.addFolder("Cropping Box").close();
-    cropping.add(myState, "cropXmin").min(0).max(1).step(0.001);
-    cropping.add(myState, "cropXmax").min(0).max(1).step(0.001);
-    cropping.add(myState, "cropYmin").min(0).max(1).step(0.001);
-    cropping.add(myState, "cropYmax").min(0).max(1).step(0.001);
-    cropping.add(myState, "cropZmin").min(0).max(1).step(0.001);
-    cropping.add(myState, "cropZmax").min(0).max(1).step(0.001);
+
+    function updateCropRegion() {
+      view3D.updateCropRegion(
+        myState.volume,
+        myState.cropXmin,
+        myState.cropXmax,
+        myState.cropYmin,
+        myState.cropYmax,
+        myState.cropZmin,
+        myState.cropZmax
+      );
+    }
+
+    cropping.add(myState, "cropXmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
+    cropping.add(myState, "cropXmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
+    cropping.add(myState, "cropYmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
+    cropping.add(myState, "cropYmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
+    cropping.add(myState, "cropZmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
+    cropping.add(myState, "cropZmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
 
 
   const lighting = gui.addFolder("Lighting").close();
