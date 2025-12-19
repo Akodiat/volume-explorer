@@ -56,6 +56,14 @@ export interface State {
   ymax: number;
   zmax: number;
 
+  cropXmin: number;
+  cropYmin: number;
+  cropZmin: number;
+  cropXmax: number;
+  cropYmax: number;
+  cropZmax: number;
+
+
   samplingRate: number;
   primaryRay: number;
   secondaryRay: number;

@@ -175,6 +175,13 @@ const myState: State = {
   ymax: 1.0,
   zmax: 1.0,
 
+  cropXmin: 0.0,
+  cropYmin: 0.0,
+  cropZmin: 0.0,
+  cropXmax: 1.0,
+  cropYmax: 1.0,
+  cropZmax: 1.0,
+
   samplingRate: 0.25,
   primaryRay: 1.0,
   secondaryRay: 1.0,
@@ -465,6 +472,15 @@ function setupGui() {
         myState.zmax
       );
     });
+
+    const cropping = gui.addFolder("Cropping Box").close();
+    cropping.add(myState, "cropXmin").min(0).max(1).step(0.001);
+    cropping.add(myState, "cropXmax").min(0).max(1).step(0.001);
+    cropping.add(myState, "cropYmin").min(0).max(1).step(0.001);
+    cropping.add(myState, "cropYmax").min(0).max(1).step(0.001);
+    cropping.add(myState, "cropZmin").min(0).max(1).step(0.001);
+    cropping.add(myState, "cropZmax").min(0).max(1).step(0.001);
+
 
   const lighting = gui.addFolder("Lighting").close();
   lighting
