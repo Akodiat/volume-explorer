@@ -219,6 +219,12 @@ const myState: State = {
 
 const getNumberOfTimesteps = (): number => myState.totalFrames || myState.volume.imageInfo.times;
 
+const histogramSelection = {
+  minBin: 0,
+  maxBin: 255,
+  dragging: null as "min" | "max" | null
+};
+
 function densitySliderToView3D(density: number) {
   return density / 50.0;
 }
@@ -994,7 +1000,18 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
   if (currentVol.isLoaded()) {
     console.log("currentVol with name " + currentVol.name + " is loaded");
   }
-  updateChannelUI(currentVol, channelIndex);
+  updateChannelUI(currentVol, channelIndex)
+
+  if (channelIndex === 0) {
+    const hist = v.getHistogram(0) as any;
+    const bins = hist.bins ?? hist.histogram;
+    
+    if (bins && bins.length) {
+      histogramSelection.minBin = 0;
+      histogramSelection.maxBin = bins.length - 1;
+    }
+  }
+  drawHistogramFromVolume(v, channelIndex);
 
   view3D.redraw();
 }
@@ -1283,6 +1300,101 @@ function setupColorizeControls() {
   });
 }
 
+function drawHistogramFromVolume(v: Volume, channelIndex: number) {
+  const canvas = document.getElementById("histogramCanvas") as HTMLCanvasElement | null;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const hist = v.getHistogram(channelIndex) as any;
+
+  const bins: number[] | Uint32Array | undefined =
+    hist.bins ?? hist.histogram;
+
+  if (!bins || bins.length === 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  bins[0] = 0;
+
+  console.log(bins)
+
+  const w = canvas.width;
+  const h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // log-scaled
+  let maxLog = 0;
+  for (let i = 0; i < bins.length; i++) {
+    const v = Math.log1p(bins[i]);
+    if (v > maxLog) maxLog = v;
+  }
+
+  if (maxLog === 0) return;
+
+
+  const barWidth = w / bins.length;
+
+  ctx.fillStyle = "#2aa1ff";
+
+  for (let i = 0; i < bins.length; i++) {
+    const v0 = Math.log1p(bins[i]) / maxLog;
+    const barHeight = v0 * h;
+
+    ctx.fillRect(
+      i * barWidth,
+      h - barHeight,
+      Math.max(1, barWidth),
+      barHeight
+    );
+  }
+
+  const minB = histogramSelection.minBin;
+  const maxB = histogramSelection.maxBin;
+
+  const x0 = (minB / bins.length) * w;
+  const x1 = (maxB / bins.length) * w;
+
+  // shaded active window
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillRect(x0, 0, x1 - x0, h);
+
+  // handles
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 4;
+
+  ctx.beginPath();
+  ctx.moveTo(x0, 0);
+  ctx.lineTo(x0, h);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x1, 0);
+  ctx.lineTo(x1, h);
+  ctx.stroke();
+
+}
+
+function histogramBinFromX(x: number, canvas: HTMLCanvasElement, binCount: number) {
+  const t = x / canvas.width;
+  const b = Math.floor(t * binCount);
+  return Math.max(0, Math.min(binCount - 1, b));
+}
+
+function applyHistogramLutFromBins(channelIndex: number) {
+  if (!myState.volume) return;
+
+  const min = histogramSelection.minBin;
+  const max = histogramSelection.maxBin;
+
+  const lut = new Lut().createFromMinMax(min, max);
+  myState.volume.setLut(channelIndex, lut);
+  view3D.updateLuts(myState.volume);
+}
+
 function main() {
   const el = document.getElementById("vol-e");
   if (!el) {
@@ -1550,6 +1662,56 @@ function main() {
   gammaScale?.addEventListener("input", ({ currentTarget }) => {
     const g = gammaSliderToImageValues([gammaMin.valueAsNumber, gammaScale.valueAsNumber, gammaMax.valueAsNumber]);
     view3D.setGamma(myState.volume, g[0], g[1], g[2]);
+  });
+
+  const histogramCanvas = document.getElementById("histogramCanvas") as HTMLCanvasElement;
+  histogramCanvas.addEventListener("mousedown", (e) => {
+    if (!myState.volume) return;
+
+    const rect = histogramCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    const hist = myState.volume.getHistogram(0) as any;
+    const bins = hist.bins ?? hist.histogram;
+    if (!bins) return;
+
+    const b = histogramBinFromX(x, histogramCanvas, bins.length);
+
+    const dMin = Math.abs(b - histogramSelection.minBin);
+    const dMax = Math.abs(b - histogramSelection.maxBin);
+
+    histogramSelection.dragging = dMin < dMax ? "min" : "max";
+  });
+
+  histogramCanvas.addEventListener("mousemove", (e) => {
+    if (!myState.volume) return;
+    if (!histogramSelection.dragging) return;
+
+    const rect = histogramCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    const hist = myState.volume.getHistogram(0) as any;
+    const bins = hist.bins ?? hist.histogram;
+    if (!bins) return;
+
+    const b = histogramBinFromX(x, histogramCanvas, bins.length);
+
+    if (histogramSelection.dragging === "min") {
+      histogramSelection.minBin = Math.min(b, histogramSelection.maxBin);
+    } else {
+      histogramSelection.maxBin = Math.max(b, histogramSelection.minBin);
+    }
+
+    applyHistogramLutFromBins(0);
+    drawHistogramFromVolume(myState.volume, 0);
+  });
+
+  histogramCanvas.addEventListener("mouseup", () => {
+    histogramSelection.dragging = null;
+  });
+  
+  histogramCanvas.addEventListener("mouseleave", () => {
+    histogramSelection.dragging = null;
   });
 
   setupColorizeControls();

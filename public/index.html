@@ -90,6 +90,10 @@
       <input id="featmin" type="range" min="0" max="100" step="1" value="0" />
       <input id="featmax" type="range" min="0" max="100" step="1" value="100" />
     </p>
+    <div id="histogram-panel" style="width:1200px;">
+      <div style="font-size:20px">Voxel intensity histogram</div>
+      <canvas id="histogramCanvas" width="1200" height="600"
+              style="border:1px solid #444"></canvas>
   </body>
   <script type="module" src="index.ts"></script>
 </html>
