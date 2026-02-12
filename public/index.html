@@ -8,26 +8,8 @@
   <body height="100%" width="100%">
     <div style="display: flex; gap: 12px; align-items: flex-start">
       <div id="controls-left" style="flex: 25 1 0">
-        <select name="Test data" id="testData">
-          <option value="zarrQimEscargot" selected>OME Zarr (QIM - Escargot)</option>
-          <option value="cellpainting">CellPainting</option>
-          <option value="testpick">Test picking</option>
-          <option value="timeSeries">Time Series Json</option>
-          <option value="omeTiff">OME TIFF</option>
-          <option value="zarrEMT">Zarr EMT</option>
-          <option value="zarrIDR1">OME Zarr (IDR 1)</option>
-          <option value="zarrIDR2">OME Zarr (IDR 2)</option>
-          <option value="zarrVariance">OME Zarr (Variance)</option>
-          <option value="zarrNucmorph0">OME Zarr (NucMorph)</option>
-          <option value="zarrFlyBrain">OME Zarr (Fly brain)</option>
-          <option value="zarrHumanOrganAtlas">OME Zarr (Human Organ Atlas)</option>
-          <option value="opencell">OpenCell</option>
-          <option value="cfeJson">CFE Json</option>
-          <option value="abm">OME TIFF (ABM data)</option>
-          <option value="procedural">Procedural</option>
-          <option value="procedural2">Procedural 2</option>
-          <option value="procedural3">Procedural 3</option>
-        </select>
+        <input id="sourceUrlInput" type="text" placeholder="Paste source URL" style="width: 100%"/>
+        <button id="loadSourceBtn">Load</button>
         <p style="margin: 2px">
           <button id="X">X</button>
           <button id="Y">Y</button>
@@ -80,7 +62,7 @@
         <p style="margin: 2px">
           <button id="colorize">Colorize</button>
           <input id="segchannel" type="number" min="0" max="10" step="1" value="0" />
-          <select name="Colormap" id="colormap">
+          <select name="Colormap" id="colormap">https%3A%2F%2Fplatform.qim.dk%2Fqim-public%2FLentils%2Flentils.zarr
             <option value="viridis" selected>viridis</option>
             <option value="plasma">plasma</option>
           </select>

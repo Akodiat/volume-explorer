@@ -54,78 +54,10 @@ const TEST_DATA: Record<string, TestDataSpec> = {
       ],
     ],
   },
-  testpick: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://allencell.s3.amazonaws.com/aics/nuc-morph-dataset/hipsc_fov_nuclei_timelapse_dataset/hipsc_fov_nuclei_timelapse_data_used_for_analysis/baseline_colonies_fov_timelapse_dataset/20200323_09_small/seg.ome.zarr",
-  },
-  timeSeries: {
-    type: VolumeFileFormat.JSON,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/timelapse/test_parent_T49.ome_%%_atlas.json",
-    times: 46,
-  },
   omeTiff: {
     type: VolumeFileFormat.TIFF,
     url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/AICS-12_881.ome.tif",
   },
-  zarrEMT: {
-    url: "https://dev-aics-dtp-001.int.allencell.org/dan-data/3500005818_20230811__20x_Timelapse-02(P27-E7).ome.zarr",
-    type: VolumeFileFormat.ZARR,
-  },
-  zarrIDR1: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0076A/10501752.zarr",
-  },
-  zarrIDR2: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0054A/5025553.zarr",
-  },
-  zarrVariance: {
-    type: VolumeFileFormat.ZARR,
-    url: [
-      "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/variance/1.zarr",
-      "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/variance/2.zarr",
-    ],
-  },
-  zarrNucmorph0: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P13-C4.zarr/",
-  },
-  zarrNucmorph1: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P15-C3.zarr/",
-  },
-  zarrNucmorph2: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P7-B4.zarr/",
-  },
-  zarrNucmorph3: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P8-B4.zarr/",
-  },
-  zarrFlyBrain: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0048A/9846152.zarr/",
-  },
-  zarrUK: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr",
-  },
-  zarrHumanOrganAtlas: {
-    type: VolumeFileFormat.ZARR,
-    url: "gs://ucl-hip-ct-35a68e99feaae8932b1d44da0358940b/A186/lung-right/24.132um_complete-organ_bm18.ome.zarr/",
-  },
-  opencell: { type: "opencell", url: "" },
-  cfeJson: {
-    type: VolumeFileFormat.JSON,
-    url: "AICS-12_881_atlas.json",
-  },
-  abm: {
-    type: VolumeFileFormat.TIFF,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/HAMILTONIAN_TERM_FOV_VSAHJUP_0000_000192.ome.tif",
-  },
-  procedural: { type: VolumeFileFormat.DATA, url: "", dtype: "uint8" },
-  procedural2: { type: VolumeFileFormat.DATA, url: "", dtype: "uint16" },
-  procedural3: { type: VolumeFileFormat.DATA, url: "", dtype: "float32" },
 };
 
 let view3D: View3d;
@@ -1228,6 +1160,44 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   loadVolume(name, loadSpec, loader);
 }
 
+function inferVolumeFileFormat(sourceUrl: string): VolumeFileFormat | null {
+  const normalized = sourceUrl.toLowerCase();
+  if (normalized.includes(".ome.zarr") || normalized.endsWith(".zarr") || normalized.includes(".zarr/")) {
+    return VolumeFileFormat.ZARR;
+  }
+  if (
+    normalized.endsWith(".ome.tiff") ||
+    normalized.endsWith(".tiff") ||
+    normalized.endsWith(".ome.tif") ||
+    normalized.endsWith(".tif")
+  ) {
+    return VolumeFileFormat.TIFF;
+  }
+  return null;
+}
+
+function getInitialTestData(): { name: string; testdata: TestDataSpec } {
+  const params = new URLSearchParams(window.location.search);
+  let source = params.get("src");
+
+  if (!source) {
+    const defaultUrl = TEST_DATA.zarrQimEscargot.url as string;
+    params.set("src", defaultUrl);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+    source = defaultUrl;
+  }
+
+  const type = inferVolumeFileFormat(source);
+  if (!type) {
+    console.warn("Unable to infer file type from src parameter. Falling back to default dataset.");
+    return { name: "zarrQimEscargot", testdata: TEST_DATA.zarrQimEscargot };
+  }
+
+  const testdata: TestDataSpec = { type, url: source };
+
+  return { name: "url", testdata };
+}
+
 function gammaSliderToImageValues(sliderValues: [number, number, number]): [number, number, number] {
   let min = Number(sliderValues[0]);
   let mid = Number(sliderValues[1]);
@@ -1472,6 +1442,25 @@ function main() {
   }
   view3D = new View3d({ parentElement: el });
 
+  const sourceUrlInput = document.getElementById("sourceUrlInput") as HTMLInputElement | null;
+  const loadSourceBtn = document.getElementById("loadSourceBtn") as HTMLButtonElement | null;
+  const syncSourceInput = () => {
+    if (!sourceUrlInput) return;
+    const params = new URLSearchParams(window.location.search);
+    sourceUrlInput.value = params.get("src") || "";
+  };
+
+  loadSourceBtn?.addEventListener("click", () => {
+    const nextSource = sourceUrlInput?.value.trim();
+    if (!nextSource) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("src", nextSource);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+    syncSourceInput();
+    const initialData = getInitialTestData();
+    loadTestData(initialData.name, initialData.testdata);
+  });
+
   el.addEventListener("mousemove", (e: Event) => {
     const event = e as MouseEvent;
     const intersectedObject = view3D.hitTest(event.offsetX, event.offsetY);
@@ -1482,15 +1471,6 @@ function main() {
     } else {
       el.style.cursor = "default";
       view3D.setSelectedID(myState.volume, myState.colorizeChannel, -1);
-    }
-  });
-
-  const testDataSelect = document.getElementById("testData");
-  testDataSelect?.addEventListener("change", ({ currentTarget }) => {
-    const selected = (currentTarget as HTMLOptionElement)?.value;
-    const testdata = TEST_DATA[selected];
-    if (testdata) {
-      loadTestData(selected, testdata);
     }
   });
 
@@ -1804,7 +1784,9 @@ function main() {
   setupColorizeControls();
   setupGui();
 
-  loadTestData((testDataSelect as HTMLSelectElement)?.value, TEST_DATA[(testDataSelect as HTMLSelectElement)?.value]);
+  const initialData = getInitialTestData();
+  syncSourceInput();
+  loadTestData(initialData.name, initialData.testdata);
 }
 
 document.body.onload = () => {
