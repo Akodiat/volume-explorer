@@ -222,7 +222,8 @@ const getNumberOfTimesteps = (): number => myState.totalFrames || myState.volume
 const histogramSelection = {
   minBin: 0,
   maxBin: 255,
-  dragging: null as "min" | "max" | null
+  dragging: null as "min" | "max" | null,
+  hover: null as "min" | "max" | null
 };
 
 function densitySliderToView3D(density: number) {
@@ -1323,8 +1324,12 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
 
   const w = canvas.width;
   const h = canvas.height;
+  const labelPad = 16;
+  const plotH = h - labelPad;
 
   ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#3f3f3f";
+  ctx.fillRect(0, 0, w, h);
 
   // log-scaled
   let maxLog = 0;
@@ -1338,15 +1343,15 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
 
   const barWidth = w / bins.length;
 
-  ctx.fillStyle = "#2aa1ff";
+  ctx.fillStyle = "#b3b3b3";
 
   for (let i = 0; i < bins.length; i++) {
     const v0 = Math.log1p(bins[i]) / maxLog;
-    const barHeight = v0 * h;
+    const barHeight = v0 * plotH;
 
     ctx.fillRect(
       i * barWidth,
-      h - barHeight,
+      plotH - barHeight,
       Math.max(1, barWidth),
       barHeight
     );
@@ -1358,24 +1363,65 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   const x0 = (minB / bins.length) * w;
   const x1 = (maxB / bins.length) * w;
 
-  // shaded active window
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.fillRect(x0, 0, x1 - x0, h);
+  if (x1 > x0) {
+    const rampGradient = ctx.createLinearGradient(x0, 0, x1, 0);
+    rampGradient.addColorStop(0, "rgba(255,255,255,0.0)");
+    rampGradient.addColorStop(1, "rgba(255,255,255,0.6)");
+    ctx.fillStyle = rampGradient;
+
+    ctx.beginPath();
+    ctx.moveTo(x0, plotH);
+    ctx.lineTo(x1, 0);
+    ctx.lineTo(x1, plotH);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillRect(x1, 0, Math.max(0, w - x1), plotH);
 
   // handles
+  const minHover = histogramSelection.hover === "min" || histogramSelection.dragging === "min";
+  const maxHover = histogramSelection.hover === "max" || histogramSelection.dragging === "max";
+
   ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = minHover ? 6 : 4;
 
   ctx.beginPath();
   ctx.moveTo(x0, 0);
-  ctx.lineTo(x0, h);
+  ctx.lineTo(x0, plotH);
   ctx.stroke();
 
+  ctx.lineWidth = maxHover ? 6 : 4;
   ctx.beginPath();
   ctx.moveTo(x1, 0);
-  ctx.lineTo(x1, h);
+  ctx.lineTo(x1, plotH);
   ctx.stroke();
 
+  // axes and ticks
+  ctx.strokeStyle = "#6a6a6a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, plotH - 1);
+  ctx.lineTo(w, plotH - 1);
+  ctx.moveTo(1, 0);
+  ctx.lineTo(1, plotH);
+  ctx.stroke();
+
+  const xTicks = 5;
+  ctx.fillStyle = "#8a8a8a";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let i = 0; i <= xTicks; i++) {
+    const x = (i / xTicks) * w;
+    ctx.beginPath();
+    ctx.moveTo(x, plotH - 1);
+    ctx.lineTo(x, plotH - 7);
+    ctx.stroke();
+    const label = Math.round((i / xTicks) * (bins.length - 1));
+    ctx.fillText(`${label}`, x, plotH + 2);
+  }
 }
 
 function histogramBinFromX(x: number, canvas: HTMLCanvasElement, binCount: number) {
@@ -1685,7 +1731,6 @@ function main() {
 
   histogramCanvas.addEventListener("mousemove", (e) => {
     if (!myState.volume) return;
-    if (!histogramSelection.dragging) return;
 
     const rect = histogramCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -1694,16 +1739,32 @@ function main() {
     const bins = hist.bins ?? hist.histogram;
     if (!bins) return;
 
-    const b = histogramBinFromX(x, histogramCanvas, bins.length);
+    if (histogramSelection.dragging) {
+      const b = histogramBinFromX(x, histogramCanvas, bins.length);
 
-    if (histogramSelection.dragging === "min") {
-      histogramSelection.minBin = Math.min(b, histogramSelection.maxBin);
-    } else {
-      histogramSelection.maxBin = Math.max(b, histogramSelection.minBin);
+      if (histogramSelection.dragging === "min") {
+        histogramSelection.minBin = Math.min(b, histogramSelection.maxBin);
+      } else {
+        histogramSelection.maxBin = Math.max(b, histogramSelection.minBin);
+      }
+
+      applyHistogramLutFromBins(0);
+      drawHistogramFromVolume(myState.volume, 0);
+      return;
     }
 
-    applyHistogramLutFromBins(0);
-    drawHistogramFromVolume(myState.volume, 0);
+    const minX = (histogramSelection.minBin / bins.length) * histogramCanvas.width;
+    const maxX = (histogramSelection.maxBin / bins.length) * histogramCanvas.width;
+    const distMin = Math.abs(x - minX);
+    const distMax = Math.abs(x - maxX);
+    const nextHover = Math.min(distMin, distMax) <= 6 ? (distMin <= distMax ? "min" : "max") : null;
+
+    if (nextHover !== histogramSelection.hover) {
+      histogramSelection.hover = nextHover;
+      drawHistogramFromVolume(myState.volume, 0);
+    }
+
+    histogramCanvas.style.cursor = nextHover ? "ew-resize" : "default";
   });
 
   histogramCanvas.addEventListener("mouseup", () => {
@@ -1712,6 +1773,8 @@ function main() {
   
   histogramCanvas.addEventListener("mouseleave", () => {
     histogramSelection.dragging = null;
+    histogramSelection.hover = null;
+    histogramCanvas.style.cursor = "default";
   });
 
   setupColorizeControls();
