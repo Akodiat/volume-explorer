@@ -226,6 +226,23 @@ const histogramSelection = {
   hover: null as "min" | "max" | null
 };
 
+function getLutHandleBins(lut: Uint8Array): [number, number] {
+  let lastZero = -1;
+  let firstFull = -1;
+  for (let i = 0; i < 256; i++) {
+    const alpha = lut[i * 4 + 3];
+    if (alpha === 0) {
+      lastZero = i;
+    }
+    if (firstFull === -1 && alpha === 255) {
+      firstFull = i;
+    }
+  }
+  const minBin = Math.max(0, lastZero);
+  const maxBin = firstFull === -1 ? 255 : firstFull;
+  return [Math.min(minBin, maxBin), Math.max(minBin, maxBin)];
+}
+
 function densitySliderToView3D(density: number) {
   return density / 50.0;
 }
@@ -1008,8 +1025,10 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
     const bins = hist.bins ?? hist.histogram;
     
     if (bins && bins.length) {
-      histogramSelection.minBin = 0;
-      histogramSelection.maxBin = bins.length - 1;
+      const channel = v.channels[0];
+      const [minBin, maxBin] = getLutHandleBins(channel.lut.lut);
+      histogramSelection.minBin = Math.min(minBin, bins.length - 1);
+      histogramSelection.maxBin = Math.min(maxBin, bins.length - 1);
     }
   }
   drawHistogramFromVolume(v, channelIndex);
@@ -1419,8 +1438,9 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
     ctx.moveTo(x, plotH - 1);
     ctx.lineTo(x, plotH - 7);
     ctx.stroke();
-    const label = Math.round((i / xTicks) * (bins.length - 1));
-    ctx.fillText(`${label}`, x, plotH + 2);
+    const binIndex = (i / xTicks) * (bins.length - 1);
+    const labelValue = hist.getValueFromBinIndex(binIndex);
+    ctx.fillText(`${Math.round(labelValue)}`, x, plotH + 2);
   }
 }
 
@@ -1437,6 +1457,10 @@ function applyHistogramLutFromBins(channelIndex: number) {
   const max = histogramSelection.maxBin;
 
   const lut = new Lut().createFromMinMax(min, max);
+  const channel = myState.volume.channels[channelIndex];
+  if (channel) {
+    lut.remapDomains(0, 255, channel.rawMin, channel.rawMax);
+  }
   myState.volume.setLut(channelIndex, lut);
   view3D.updateLuts(myState.volume);
 }
