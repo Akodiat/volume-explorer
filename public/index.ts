@@ -404,9 +404,35 @@ function setInitialRenderMode() {
 
 let gui: GUI;
 
-function setupGui() {
-  gui = new GUI();
-  gui.hide()
+function setupGui(container: HTMLElement) {
+  gui = new GUI({ container });
+  gui.hide();
+
+  if (window.getComputedStyle(container).position === "static") {
+    container.style.position = "relative";
+  }
+
+  gui.domElement.style.position = "absolute";
+  gui.domElement.style.top = "0";
+  gui.domElement.style.left = "0";
+  gui.domElement.style.right = "auto";
+
+  let guiVisible = false;
+
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isShortcut = event.ctrlKey && event.altKey && (event.code === "Digit2" || event.code === "Numpad2");
+    if (!isShortcut) {
+      return;
+    }
+
+    event.preventDefault();
+    guiVisible = !guiVisible;
+    if (guiVisible) {
+      gui.show();
+    } else {
+      gui.hide();
+    }
+  });
 
   gui
     .add(myState, "density")
@@ -1064,8 +1090,8 @@ function showChannelUI(volume: Volume) {
 
   const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
   if (objectColorInput && myState.channelGui.length > 0) {
-    myState.objectColor = [...myState.channelGui[0].colorD] as [number, number, number];
-    objectColorInput.value = rgb255ToHex(myState.objectColor);
+    myState.foregroundColor = [...myState.channelGui[0].colorD] as [number, number, number];
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
   }
 }
 
@@ -2190,7 +2216,7 @@ function main() {
 
   setupColorizeControls();
   setupCropControls();
-  setupGui();
+  setupGui(el);
 
   void loadFromCurrentSource(true);
 }
