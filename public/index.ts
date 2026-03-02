@@ -66,7 +66,7 @@ const myState: State = {
     ),
   ],
 
-  density: 12.5,
+  density: 25.0,
   maskAlpha: 1.0,
   exposure: 0.75,
   aperture: 0.0,
@@ -116,9 +116,9 @@ const myState: State = {
   showScaleBar: true,
 
   showBoundingBox: false,
-  boundingBoxColor: [255, 255, 0],
-  backgroundColor: [0, 0, 0],
-  foregroundColor: [255, 255, 255],
+  boundingBoxColor: [0.5, 0.5, 0.5],
+  backgroundColor: [0.9, 0.9, 0.9],
+  foregroundColor: [0, 170, 255],
   flipX: 1,
   flipY: 1,
   flipZ: 1,
@@ -143,7 +143,9 @@ const histogramSelection = {
   minBin: 0,
   maxBin: 255,
   dragging: null as "min" | "max" | null,
-  hover: null as "min" | "max" | null
+  hover: null as "min" | "max" | null,
+  minHandleHoverWeight: 0,
+  maxHandleHoverWeight: 0,
 };
 
 type CropAxis = "x" | "y" | "z";
@@ -864,7 +866,7 @@ function showChannelUI(volume: Volume) {
   myState.channelFolderNames = [];
   for (let i = 0; i < nChannels; ++i) {
     myState.channelGui.push({
-      colorD: volume.channelColorsDefault[i],
+      colorD: [...myState.foregroundColor] as [number, number, number],
       colorS: [0, 0, 0],
       colorE: [0, 0, 0],
       window: 1.0,
@@ -1090,9 +1092,20 @@ function showChannelUI(volume: Volume) {
 
   const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
   if (objectColorInput && myState.channelGui.length > 0) {
-    myState.foregroundColor = [...myState.channelGui[0].colorD] as [number, number, number];
     objectColorInput.value = rgb255ToHex(myState.foregroundColor);
   }
+
+  for (let channelIndex = 0; channelIndex < myState.channelGui.length; channelIndex++) {
+    view3D.updateChannelMaterial(
+      volume,
+      channelIndex,
+      myState.channelGui[channelIndex].colorD,
+      myState.channelGui[channelIndex].colorS,
+      myState.channelGui[channelIndex].colorE,
+      myState.channelGui[channelIndex].glossiness
+    );
+  }
+  view3D.updateMaterial(volume);
 }
 
 function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
@@ -1179,6 +1192,7 @@ function onVolumeCreated(name: string, volume: Volume) {
   view3D.updateLights(myState.lights);
   view3D.updateDensity(myState.volume, densitySliderToView3D(myState.density));
   view3D.updateExposure(myState.exposure);
+  view3D.setBoundingBoxColor(myState.volume, myState.boundingBoxColor);
 
   // apply a volume transform from an external source:
   if (myJson.transform) {
@@ -1549,15 +1563,27 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   const minHover = histogramSelection.hover === "min" || histogramSelection.dragging === "min";
   const maxHover = histogramSelection.hover === "max" || histogramSelection.dragging === "max";
 
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = minHover ? 6 : 4;
+  const canvasStyles = window.getComputedStyle(canvas);
+  const handleColor = canvasStyles.getPropertyValue("--histogram-handle-color").trim() || "#000000";
+  const handleWidth = Number(canvasStyles.getPropertyValue("--histogram-handle-width").trim()) || 4;
+  const handleWidthHover = Number(canvasStyles.getPropertyValue("--histogram-handle-width-hover").trim()) || 6;
+  const handleWidthDelta = handleWidthHover - handleWidth;
+
+  ctx.strokeStyle = handleColor;
+  const minWeight = minHover
+    ? Math.max(histogramSelection.minHandleHoverWeight, 1)
+    : histogramSelection.minHandleHoverWeight;
+  ctx.lineWidth = handleWidth + handleWidthDelta * minWeight;
 
   ctx.beginPath();
   ctx.moveTo(x0, 0);
   ctx.lineTo(x0, plotH);
   ctx.stroke();
 
-  ctx.lineWidth = maxHover ? 6 : 4;
+  const maxWeight = maxHover
+    ? Math.max(histogramSelection.maxHandleHoverWeight, 1)
+    : histogramSelection.maxHandleHoverWeight;
+  ctx.lineWidth = handleWidth + handleWidthDelta * maxWeight;
   ctx.beginPath();
   ctx.moveTo(x1, 0);
   ctx.lineTo(x1, plotH);
@@ -1897,6 +1923,7 @@ function main() {
     showBoundsToggle.addEventListener("change", (event: Event) => {
       const target = event.target as HTMLInputElement;
       myState.showBoundingBox = target.type === "checkbox" ? target.checked : !myState.showBoundingBox;
+      view3D.setBoundingBoxColor(myState.volume, myState.boundingBoxColor);
       view3D.setShowBoundingBox(myState.volume, myState.showBoundingBox);
     });
   }
@@ -2147,6 +2174,54 @@ function main() {
   });
 
   const histogramCanvas = document.getElementById("histogram-canvas") as HTMLCanvasElement;
+  let histogramHandleAnimationFrame: number | null = null;
+
+  const animateHistogramHandleHover = () => {
+    if (!myState.volume) {
+      histogramSelection.minHandleHoverWeight = 0;
+      histogramSelection.maxHandleHoverWeight = 0;
+      histogramHandleAnimationFrame = null;
+      return;
+    }
+
+    const targetMin = histogramSelection.hover === "min" || histogramSelection.dragging === "min" ? 1 : 0;
+    const targetMax = histogramSelection.hover === "max" || histogramSelection.dragging === "max" ? 1 : 0;
+    const canvasStyles = window.getComputedStyle(histogramCanvas);
+    const speedRaw = Number(canvasStyles.getPropertyValue("--histogram-handle-hover-speed").trim());
+    const easing = Number.isFinite(speedRaw) ? Math.min(1, Math.max(0.01, speedRaw)) : 0.25;
+
+    histogramSelection.minHandleHoverWeight +=
+      (targetMin - histogramSelection.minHandleHoverWeight) * easing;
+    histogramSelection.maxHandleHoverWeight +=
+      (targetMax - histogramSelection.maxHandleHoverWeight) * easing;
+
+    const minDone = Math.abs(targetMin - histogramSelection.minHandleHoverWeight) < 0.01;
+    const maxDone = Math.abs(targetMax - histogramSelection.maxHandleHoverWeight) < 0.01;
+
+    if (minDone) {
+      histogramSelection.minHandleHoverWeight = targetMin;
+    }
+    if (maxDone) {
+      histogramSelection.maxHandleHoverWeight = targetMax;
+    }
+
+    drawHistogramFromVolume(myState.volume, 0);
+
+    if (minDone && maxDone) {
+      histogramHandleAnimationFrame = null;
+      return;
+    }
+
+    histogramHandleAnimationFrame = window.requestAnimationFrame(animateHistogramHandleHover);
+  };
+
+  const requestHistogramHandleAnimation = () => {
+    if (histogramHandleAnimationFrame !== null) {
+      return;
+    }
+    histogramHandleAnimationFrame = window.requestAnimationFrame(animateHistogramHandleHover);
+  };
+
   histogramCanvas.addEventListener("mousedown", (e) => {
     if (!myState.volume) return;
 
@@ -2163,6 +2238,7 @@ function main() {
     const dMax = Math.abs(b - histogramSelection.maxBin);
 
     histogramSelection.dragging = dMin < dMax ? "min" : "max";
+    requestHistogramHandleAnimation();
   });
 
   histogramCanvas.addEventListener("mousemove", (e) => {
@@ -2186,6 +2262,7 @@ function main() {
 
       applyHistogramLutFromBins(0);
       drawHistogramFromVolume(myState.volume, 0);
+      requestHistogramHandleAnimation();
       return;
     }
 
@@ -2198,7 +2275,7 @@ function main() {
 
     if (nextHover !== histogramSelection.hover) {
       histogramSelection.hover = nextHover;
-      drawHistogramFromVolume(myState.volume, 0);
+      requestHistogramHandleAnimation();
     }
 
     histogramCanvas.style.cursor = nextHover ? "ew-resize" : "default";
@@ -2206,12 +2283,14 @@ function main() {
 
   histogramCanvas.addEventListener("mouseup", () => {
     histogramSelection.dragging = null;
+    requestHistogramHandleAnimation();
   });
   
   histogramCanvas.addEventListener("mouseleave", () => {
     histogramSelection.dragging = null;
     histogramSelection.hover = null;
     histogramCanvas.style.cursor = "default";
+    requestHistogramHandleAnimation();
   });
 
   setupColorizeControls();

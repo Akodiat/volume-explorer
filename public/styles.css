@@ -1,9 +1,17 @@
+:root {
+  --controls-item-margin-y: 2rem;
+  --form-control-color-radius: 0.3rem;
+  --controls-color-input-height: 1.5rem;
+}
+
 html,
 body {
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  font-size: 0.9rem;
+  color: white;
 }
 
 .hidden {
@@ -17,13 +25,68 @@ body {
 }
 
 .panel {
-  background-color: lightgray;
+  background-color: rgb(48, 48, 48);
   min-width: 0;
 }
 
 #controls-panel {
   flex: 1 1 0;
-  padding: 0.5rem;
+  padding: 1rem 5rem;
+  max-width: 500px;
+  min-width: 400px;
+  width: 100%;
+}
+
+#controls-panel .controls-item {
+  margin-top: var(--controls-item-margin-y);
+  margin-bottom: var(--controls-item-margin-y);
+}
+
+#controls-panel .controls-item:first-child {
+  margin-top: 0;
+}
+
+#controls-panel .form-control {
+  background-color: white;
+  color: rgb(33, 37, 41);
+  border-color: rgb(88, 88, 88);
+}
+
+#controls-panel .form-control:focus {
+  background-color: white;
+  color: rgb(33, 37, 41);
+  border-color: steelblue;
+  box-shadow: none;
+}
+
+#controls-panel .form-control-color {
+  width: 2em;
+  height: var(--controls-color-input-height);
+  padding: 0.0rem 0.0rem;
+  border-radius: var(--form-control-color-radius);
+  border-color: white;
+
+}
+
+#controls-panel .form-check-input {
+  height: var(--controls-color-input-height);
+  width: 2.8rem;
+}
+
+#controls-panel .form-switch .form-check-input {
+  margin-top: 0;
+}
+
+#controls-panel .form-control-color::-webkit-color-swatch-wrapper {
+  border-radius: var(--form-control-color-radius);
+}
+
+#controls-panel .form-control-color::-webkit-color-swatch {
+  border-radius: var(--form-control-color-radius);
+}
+
+#controls-panel .form-control-color::-moz-color-swatch {
+  border-radius: var(--form-control-color-radius);
 }
 
 #viewer-panel {
@@ -34,6 +97,11 @@ body {
 #scale-error {
   display: none;
   color: darkred;
+}
+
+#controls-panel .scale-level-highlight {
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .crop-merged-slider {
@@ -127,6 +195,10 @@ body {
 }
 
 #histogram-canvas {
+  --histogram-handle-color: steelblue;
+  --histogram-handle-width: 20;
+  --histogram-handle-width-hover: 32;
+  --histogram-handle-hover-speed: 0.2;
   width: 100%;
   display: block;
 }

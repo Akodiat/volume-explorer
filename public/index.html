@@ -14,39 +14,56 @@
   <body>
     <div class="flex-layout">
       <div id="controls-panel" class="panel">
-        <div class="mb-2">
+        <h2 class="controls-item">Qim Volume Explorer</h2>
+        <div class="controls-item">
           <form id="source-form" class="row g-2 align-items-center">
             <label for="source-url-input" class="col-12 col-form-label">Source</label>
             <div class="col-12 col-sm">
               <input id="source-url-input" type="text" class="form-control" placeholder="Paste URL" />
             </div>
             <div class="col-12 col-sm-auto d-grid">
-              <button id="source-load-button" class="btn btn-outline-secondary" type="submit">Load</button>
+              <button id="source-load-button" class="btn btn-secondary" type="submit">Load</button>
             </div>
           </form>
           <p id="source-error" class="mt-2 mb-0"></p>
         </div>
-
-        <div class="mt-1 mb-2">
-          <div class="row row-cols-1 row-cols-lg-2 g-3 mb-2">
+        
+        <div class="controls-item">
+          <div class="row row-cols-1 g-2">
             <div class="col">
-              <div class="d-flex align-items-center justify-content-between gap-2 flex-nowrap">
+              <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
+                <label for="ome-zarr-scale-select" class="col-form-label mb-0 text-nowrap">
+                  <span class="scale-level-highlight">Current scale</span>
+                  <span class="scale-level-highlight">(<span id="ome-zarr-scale-level-value">-</span>)</span>
+                </label>
+              </div>
+              <div>
+              <select id="ome-zarr-scale-select" class="form-select form-select-sm w-auto">
+                <option value="auto" selected>Auto</option>
+              </select>
+            </div>
+            </div>
+          </div>
+          <p id="scale-error" class="mt-2 mb-0"></p>
+        </div>
+
+        <div class="controls-item">
+          <div class="row row-cols-1 row-cols-lg-3 g-3">
+            <div class="col">
+              <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
                 <label for="backgroundColor" class="col-form-label mb-0 text-nowrap">Background</label>
                 <input type="color" id="backgroundColor" class="form-control form-control-color flex-shrink-0" value="#000000" title="Background color" />
               </div>
             </div>
             <div class="col">
-              <div class="d-flex align-items-center justify-content-between gap-2 flex-nowrap">
+              <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
                 <label for="objectColor" class="col-form-label mb-0 text-nowrap">Foreground</label>
                 <input type="color" id="objectColor" class="form-control form-control-color flex-shrink-0" value="#ffffff" title="Foreground color" />
               </div>
             </div>
-          </div>
-
-          <div class="row row-cols-1 row-cols-lg-2 g-3">
             <div class="col">
-              <div class="d-flex align-items-center justify-content-between gap-2 flex-nowrap">
-                <label for="showBoundingBox" class="col-form-label mb-0 text-nowrap">Bounds</label>
+              <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
+                <label for="showBoundingBox" class="col-form-label mb-0 text-nowrap">Grid</label>
                 <div class="d-flex align-items-center gap-2 flex-nowrap">
                   <input type="color" id="boundingBoxColor" class="form-control form-control-color flex-shrink-0" value="#ffff00" title="Bounding box color" />
                   <div class="form-check form-switch mb-0">
@@ -55,18 +72,10 @@
                 </div>
               </div>
             </div>
-            <div class="col">
-              <div class="d-flex align-items-center justify-content-between gap-2 flex-nowrap">
-                <label for="axisBtn" class="col-form-label mb-0 text-nowrap">Axes</label>
-                <div class="form-check form-switch mb-0">
-                  <input class="form-check-input" type="checkbox" role="switch" id="axisBtn" aria-label="Toggle axes" />
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <div class="mt-2 mb-2">
+        <div class="controls-item">
           <div class="d-flex align-items-center justify-content-between mb-2">
             <span>Cropping</span>
             <button id="crop-reset-button" type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
@@ -111,34 +120,17 @@
           </div>
         </div>
 
-        <div class="mt-2 mb-2">
-          <div class="row row-cols-1 g-2">
-            <div class="col">
-              <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
-                <label for="ome-zarr-scale-select" class="col-form-label mb-0 text-nowrap">
-                  Scale level
-                  <span class="text-muted">(<span id="ome-zarr-scale-level-value">-</span>)</span>
-                </label>
-                <select id="ome-zarr-scale-select" class="form-select form-select-sm w-auto ms-md-auto">
-                  <option value="auto" selected>Auto</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <p id="scale-error" class="mt-2 mb-0"></p>
-        </div>
-
       
-        <div class="border rounded-2 overflow-hidden">
+        <div class="controls-item border rounded-2 overflow-hidden">
           <canvas id="histogram-canvas" width="2048px" height="1024px"></canvas>
         </div>
 
-        <div class="mt-2">
+        <div class="controls-item">
           <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
             <label for="global-opacity-slider" class="col-form-label mb-0 text-nowrap">Global opacity</label>
             <input
               id="global-opacity-slider"
-              class="form-range opacity-range w-100 ms-md-auto"
+                class="form-range opacity-range w-100"
               type="range"
               min="0"
               max="1"
