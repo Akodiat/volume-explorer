@@ -1,0 +1,155 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.hidden {
+  display : none
+}
+
+.flex-layout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.panel {
+  background-color: lightgray;
+  min-width: 0;
+}
+
+#controls-panel {
+  flex: 1 1 0;
+  padding: 0.5rem;
+}
+
+#viewer-panel {
+  flex: 2 1 0;
+}
+
+#source-error,
+#scale-error {
+  display: none;
+  color: darkred;
+}
+
+.crop-merged-slider {
+  position: relative;
+  height: 24px;
+  touch-action: none;
+}
+
+.crop-track,
+.crop-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+}
+
+.crop-track {
+  background: lightsteelblue;
+  z-index: 0;
+}
+
+.crop-fill {
+  background: steelblue;
+  z-index: 1;
+}
+
+.crop-handle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  z-index: 2;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.crop-handle[id$="-min"] {
+  z-index: 3;
+}
+
+.crop-handle[id$="-max"] {
+  z-index: 4;
+}
+
+.crop-handle::-webkit-slider-runnable-track,
+.opacity-range::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 6px;
+    background: linear-gradient(
+    to right,
+    var(--opacity-fill) 0%,
+    var(--opacity-fill) calc(var(--value, 100) * 1%),
+    var(--opacity-track) calc(var(--value, 100) * 1%),
+    var(--opacity-track) 100%
+  );
+}
+
+.crop-handle::-moz-range-track,
+.opacity-range::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 6px;
+  background: var(--opacity-track);
+}
+
+.crop-handle::-webkit-slider-thumb,
+.opacity-range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid steelblue;
+  background: white;
+  pointer-events: auto;
+  cursor: grab;
+
+}
+
+.crop-handle::-moz-range-thumb,
+.opacity-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid steelblue;
+  background: white;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+#histogram-canvas {
+  width: 100%;
+  display: block;
+}
+
+.opacity-range {
+  --opacity-track: lightsteelblue;
+  --opacity-fill: steelblue;
+}
+
+.opacity-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--opacity-fill);
+}
+
+.crop-handle:active::-webkit-slider-thumb,
+.opacity-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+
+.crop-handle:active::-moz-range-thumb,
+.opacity-range:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+

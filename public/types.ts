@@ -82,6 +82,7 @@ export interface State {
   boundingBoxColor: [number, number, number];
 
   backgroundColor: [number, number, number];
+  foregroundColor: [number, number, number];
 
   flipX: -1 | 1;
   flipY: -1 | 1;

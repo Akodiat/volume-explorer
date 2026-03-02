@@ -802,8 +802,8 @@ export default class VolumeDrawable {
       object.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax);
     }
 
-    console.log("Requested atlas edge:", this.volume.loadSpecRequired.maxAtlasEdge);
-    console.log("Subregion:", xmin, xmax, ymin, ymax, zmin, zmax);
+    // console.log("Requested atlas edge:", this.volume.loadSpecRequired.maxAtlasEdge);
+    // console.log("Subregion:", xmin, xmax, ymin, ymax, zmin, zmax);
 
     if (toCrop == true) {
       this.volume.updateRequiredData({

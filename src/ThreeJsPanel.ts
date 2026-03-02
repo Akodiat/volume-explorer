@@ -1,10 +1,12 @@
 import {
   AxesHelper,
   BoxGeometry,
+  CanvasTexture,
   Color,
   DepthTexture,
   Event,
   EventListener,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
   Object3D,
@@ -14,6 +16,8 @@ import {
   NormalBlending,
   RGBAFormat,
   Scene,
+  Sprite,
+  SpriteMaterial,
   UnsignedByteType,
   Vector2,
   Vector3,
@@ -361,8 +365,21 @@ export class ThreeJsPanel {
     const axisCubeMesh = new Mesh(axisCube, axisCubeMaterial);
     this.axisHelperObject.add(axisCubeMesh);
 
-    const axisHelper = new AxesHelper(this.axisScale);
+    const axisLineLength = this.axisScale * 0.75;
+    const axisHelper = new AxesHelper(axisLineLength);
     this.axisHelperObject.add(axisHelper);
+
+    const xLabel = this.createAxisLabelSprite("X", "orangered");
+    xLabel.position.set(axisLineLength * 1.25, 0, 0);
+    this.axisHelperObject.add(xLabel);
+
+    const yLabel = this.createAxisLabelSprite("Y", "green");
+    yLabel.position.set(0, axisLineLength * 1.25, 0);
+    this.axisHelperObject.add(yLabel);
+
+    const zLabel = this.createAxisLabelSprite("Z", "blue");
+    zLabel.position.set(0, 0, axisLineLength * 1.25);
+    this.axisHelperObject.add(zLabel);
 
     this.axisHelperScene.add(this.axisHelperObject);
 
@@ -373,6 +390,37 @@ export class ThreeJsPanel {
     this.axisCamera.up.z = 0.0;
     this.axisCamera.lookAt(new Vector3(0, 0, 0));
     this.axisCamera.position.set(-this.axisOffset[0], -this.axisOffset[1], this.axisScale * 2.0);
+  }
+
+  private createAxisLabelSprite(text: string, color: string): Sprite {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.font = "bold 88px Arial";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = color;
+      context.fillText(text, canvas.width / 2, canvas.height / 2);
+    }
+
+    const texture = new CanvasTexture(canvas);
+    texture.minFilter = LinearFilter;
+    texture.generateMipmaps = false;
+
+    const material = new SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const sprite = new Sprite(material);
+    const labelScale = this.axisScale * 0.38;
+    sprite.scale.set(labelScale, labelScale, 1);
+    sprite.renderOrder = 999;
+    return sprite;
   }
 
   setAxisPosition(marginX: number, marginY: number, corner: ViewportCorner) {

@@ -18,6 +18,8 @@ import {
   RENDERMODE_PATHTRACE,
   RENDERMODE_RAYMARCH,
   SKY_LIGHT,
+  VolumeLoadError,
+  VolumeLoadErrorType,
   VolumeFileFormat,
 } from "../src";
 // special loader really just for this demo app but lives with the other loaders
@@ -38,21 +40,6 @@ const TEST_DATA: Record<string, TestDataSpec> = {
   zarrQimEscargot: {
     url: "https://platform.qim.dk/qim-public/Escargot/Escargot.zarr",
     type: VolumeFileFormat.ZARR,
-  },
-  cellpainting: {
-    type: VolumeFileFormat.TIFF,
-    url: [
-      [
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch1sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch2sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch3sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch4sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch5sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch6sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch7sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch8sk5fk1fl1.tiff",
-      ],
-    ],
   },
   omeTiff: {
     type: VolumeFileFormat.TIFF,
@@ -131,6 +118,7 @@ const myState: State = {
   showBoundingBox: false,
   boundingBoxColor: [255, 255, 0],
   backgroundColor: [0, 0, 0],
+  foregroundColor: [255, 255, 255],
   flipX: 1,
   flipY: 1,
   flipZ: 1,
@@ -158,21 +146,184 @@ const histogramSelection = {
   hover: null as "min" | "max" | null
 };
 
-function getLutHandleBins(lut: Uint8Array): [number, number] {
-  let lastZero = -1;
-  let firstFull = -1;
-  for (let i = 0; i < 256; i++) {
-    const alpha = lut[i * 4 + 3];
-    if (alpha === 0) {
-      lastZero = i;
+type CropAxis = "x" | "y" | "z";
+
+type CropStateKey = "cropXmin" | "cropXmax" | "cropYmin" | "cropYmax" | "cropZmin" | "cropZmax";
+
+const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey }> = {
+  x: { min: "cropXmin", max: "cropXmax" },
+  y: { min: "cropYmin", max: "cropYmax" },
+  z: { min: "cropZmin", max: "cropZmax" },
+};
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function applyCropRegionFromState() {
+  view3D.updateCropRegion(
+    myState.volume,
+    myState.cropXmin,
+    myState.cropXmax,
+    myState.cropYmin,
+    myState.cropYmax,
+    myState.cropZmin,
+    myState.cropZmax
+  );
+}
+
+function syncCropFill(axis: CropAxis) {
+  const fill = document.getElementById(`crop-${axis}-fill`) as HTMLElement | null;
+  if (!fill) {
+    return;
+  }
+
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const minValue = myState[minKey] as number;
+  const maxValue = myState[maxKey] as number;
+  fill.style.left = `${minValue * 100}%`;
+  fill.style.right = `${(1 - maxValue) * 100}%`;
+}
+
+function syncCropInputsFromState() {
+  const axes: CropAxis[] = ["x", "y", "z"];
+  for (const axis of axes) {
+    const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
+    const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+    if (!minInput || !maxInput) {
+      continue;
     }
-    if (firstFull === -1 && alpha === 255) {
-      firstFull = i;
+
+    const minKey = cropAxisStateKeys[axis].min;
+    const maxKey = cropAxisStateKeys[axis].max;
+    minInput.value = `${myState[minKey]}`;
+    maxInput.value = `${myState[maxKey]}`;
+    syncCropFill(axis);
+  }
+}
+
+function setupCropControls() {
+  const axes: CropAxis[] = ["x", "y", "z"];
+
+  for (const axis of axes) {
+    const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
+    const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+
+    if (!minInput || !maxInput) {
+      continue;
+    }
+
+    const minKey = cropAxisStateKeys[axis].min;
+    const maxKey = cropAxisStateKeys[axis].max;
+
+    const onMinInput = () => {
+      const nextMin = Math.min(clamp01(minInput.valueAsNumber), myState[maxKey] as number);
+      myState[minKey] = nextMin;
+      minInput.value = `${nextMin}`;
+      syncCropFill(axis);
+      applyCropRegionFromState();
+    };
+
+    const onMaxInput = () => {
+      const nextMax = Math.max(clamp01(maxInput.valueAsNumber), myState[minKey] as number);
+      myState[maxKey] = nextMax;
+      maxInput.value = `${nextMax}`;
+      syncCropFill(axis);
+      applyCropRegionFromState();
+    };
+
+    minInput.addEventListener("input", onMinInput);
+    maxInput.addEventListener("input", onMaxInput);
+
+    const mergedSlider = minInput.closest(".crop-merged-slider") as HTMLElement | null;
+    if (mergedSlider) {
+      let activeHandle: "min" | "max" | null = null;
+
+      const updateFromClientX = (clientX: number, handle: "min" | "max") => {
+        const rect = mergedSlider.getBoundingClientRect();
+        if (rect.width <= 0) {
+          return;
+        }
+
+        const normalized = clamp01((clientX - rect.left) / rect.width);
+        const minValue = myState[minKey] as number;
+        const maxValue = myState[maxKey] as number;
+
+        if (handle === "min") {
+          const nextMin = Math.min(normalized, maxValue);
+          myState[minKey] = nextMin;
+          minInput.value = `${nextMin}`;
+        } else {
+          const nextMax = Math.max(normalized, minValue);
+          myState[maxKey] = nextMax;
+          maxInput.value = `${nextMax}`;
+        }
+
+        syncCropFill(axis);
+        applyCropRegionFromState();
+      };
+
+      mergedSlider.addEventListener("pointerdown", (event: PointerEvent) => {
+        const target = event.target as HTMLElement;
+        if (target === minInput || target === maxInput) {
+          return;
+        }
+
+        const rect = mergedSlider.getBoundingClientRect();
+        if (rect.width <= 0) {
+          return;
+        }
+
+        const normalized = clamp01((event.clientX - rect.left) / rect.width);
+        const minValue = myState[minKey] as number;
+        const maxValue = myState[maxKey] as number;
+        const minDistance = Math.abs(normalized - minValue);
+        const maxDistance = Math.abs(normalized - maxValue);
+
+        activeHandle = minDistance <= maxDistance ? "min" : "max";
+        updateFromClientX(event.clientX, activeHandle);
+        mergedSlider.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+
+      mergedSlider.addEventListener("pointermove", (event: PointerEvent) => {
+        if (!activeHandle) {
+          return;
+        }
+        updateFromClientX(event.clientX, activeHandle);
+        event.preventDefault();
+      });
+
+      const stopDrag = (event: PointerEvent) => {
+        if (!activeHandle) {
+          return;
+        }
+        activeHandle = null;
+        if (mergedSlider.hasPointerCapture(event.pointerId)) {
+          mergedSlider.releasePointerCapture(event.pointerId);
+        }
+      };
+
+      mergedSlider.addEventListener("pointerup", stopDrag);
+      mergedSlider.addEventListener("pointercancel", stopDrag);
     }
   }
-  const minBin = Math.max(0, lastZero);
-  const maxBin = firstFull === -1 ? 255 : firstFull;
-  return [Math.min(minBin, maxBin), Math.max(minBin, maxBin)];
+
+  const resetCropBtn = document.getElementById("crop-reset-button") as HTMLButtonElement | null;
+  resetCropBtn?.addEventListener("click", () => {
+    myState.cropXmin = 0;
+    myState.cropXmax = 1;
+    myState.cropYmin = 0;
+    myState.cropYmax = 1;
+    myState.cropZmin = 0;
+    myState.cropZmax = 1;
+
+    syncCropInputsFromState();
+    applyCropRegionFromState();
+  });
+
+  syncCropInputsFromState();
 }
 
 function densitySliderToView3D(density: number) {
@@ -255,6 +406,7 @@ let gui: GUI;
 
 function setupGui() {
   gui = new GUI();
+  gui.hide()
 
   gui
     .add(myState, "density")
@@ -428,28 +580,6 @@ function setupGui() {
         myState.zmax
       );
     });
-
-    const cropping = gui.addFolder("Cropping Box").close();
-
-    function updateCropRegion() {
-      view3D.updateCropRegion(
-        myState.volume,
-        myState.cropXmin,
-        myState.cropXmax,
-        myState.cropYmin,
-        myState.cropYmax,
-        myState.cropZmin,
-        myState.cropZmax
-      );
-    }
-
-    cropping.add(myState, "cropXmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
-    cropping.add(myState, "cropXmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
-    cropping.add(myState, "cropYmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
-    cropping.add(myState, "cropYmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
-    cropping.add(myState, "cropZmin").min(0).max(1).step(0.001).onChange(updateCropRegion);
-    cropping.add(myState, "cropZmax").min(0).max(1).step(0.001).onChange(updateCropRegion);
-
 
   const lighting = gui.addFolder("Lighting").close();
   lighting
@@ -628,6 +758,41 @@ function updateScenesUI() {
   const sceneInput = document.getElementById("sceneValue") as HTMLInputElement;
   sceneInput.max = `${maxSceneIndex}`;
   sceneInput.value = `${Math.min(myState.scene, maxSceneIndex)}`;
+}
+
+function updateOmeZarrScaleSelect(volume: Volume) {
+  const selectEl = document.getElementById("ome-zarr-scale-select") as HTMLSelectElement | null;
+  if (!selectEl) {
+    return;
+  }
+  const scaleLabelEl = document.getElementById("ome-zarr-scale-level-value");
+
+  const totalLevels = volume.imageInfo.numMultiscaleLevels;
+  const currentLevel = volume.imageInfo.multiscaleLevel;
+
+  selectEl.innerHTML = "";
+
+  const autoOption = document.createElement("option");
+  autoOption.value = "auto";
+  autoOption.textContent = "Auto";
+  selectEl.appendChild(autoOption);
+
+  for (let i = 0; i < totalLevels; i++) {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = `Level ${i}`;
+    selectEl.appendChild(option);
+  }
+
+  if (volume.loadSpec.useExplicitLevel) {
+    selectEl.value = String(currentLevel);
+  } else {
+    selectEl.value = "auto";
+  }
+
+  if (scaleLabelEl) {
+    scaleLabelEl.textContent = totalLevels > 1 ? `${currentLevel}/${totalLevels - 1}` : "n/a";
+  }
 }
 
 function updateChannelUI(vol: Volume, channelIndex: number) {
@@ -896,6 +1061,12 @@ function showChannelUI(volume: Volume) {
         })(i)
       );
   }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput && myState.channelGui.length > 0) {
+    myState.objectColor = [...myState.channelGui[0].colorD] as [number, number, number];
+    objectColorInput.value = rgb255ToHex(myState.objectColor);
+  }
 }
 
 function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
@@ -958,13 +1129,13 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
     
     if (bins && bins.length) {
       const channel = v.channels[0];
-      const [minBin, maxBin] = getLutHandleBins(channel.lut.lut);
+      const [minBin, maxBin] = hist.findAutoIJBins();
       histogramSelection.minBin = Math.min(minBin, bins.length - 1);
       histogramSelection.maxBin = Math.min(maxBin, bins.length - 1);
     }
   }
   drawHistogramFromVolume(v, channelIndex);
-
+  updateOmeZarrScaleSelect(v);
   view3D.redraw();
 }
 
@@ -1001,7 +1172,10 @@ function onVolumeCreated(name: string, volume: Volume) {
   updateTimeUI();
   updateScenesUI();
   updateZSliceUI(myState.volume);
+  syncCropInputsFromState();
+  applyCropRegionFromState();
   showChannelUI(myState.volume);
+  updateOmeZarrScaleSelect(myState.volume);
 }
 
 function setSyncMultichannelLoading(sync: boolean) {
@@ -1157,7 +1331,7 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   const loadSpec = new LoadSpec();
   myState.totalFrames = testdata.times;
   const loader = myState.loader[Math.max(myState.scene, myState.loader.length - 1)];
-  loadVolume(name, loadSpec, loader);
+  await loadVolume(name, loadSpec, loader);
 }
 
 function inferVolumeFileFormat(sourceUrl: string): VolumeFileFormat | null {
@@ -1174,28 +1348,6 @@ function inferVolumeFileFormat(sourceUrl: string): VolumeFileFormat | null {
     return VolumeFileFormat.TIFF;
   }
   return null;
-}
-
-function getInitialTestData(): { name: string; testdata: TestDataSpec } {
-  const params = new URLSearchParams(window.location.search);
-  let source = params.get("src");
-
-  if (!source) {
-    const defaultUrl = TEST_DATA.zarrQimEscargot.url as string;
-    params.set("src", defaultUrl);
-    window.history.replaceState(null, "", `?${params.toString()}`);
-    source = defaultUrl;
-  }
-
-  const type = inferVolumeFileFormat(source);
-  if (!type) {
-    console.warn("Unable to infer file type from src parameter. Falling back to default dataset.");
-    return { name: "zarrQimEscargot", testdata: TEST_DATA.zarrQimEscargot };
-  }
-
-  const testdata: TestDataSpec = { type, url: source };
-
-  return { name: "url", testdata };
 }
 
 function gammaSliderToImageValues(sliderValues: [number, number, number]): [number, number, number] {
@@ -1291,7 +1443,7 @@ function setupColorizeControls() {
 }
 
 function drawHistogramFromVolume(v: Volume, channelIndex: number) {
-  const canvas = document.getElementById("histogramCanvas") as HTMLCanvasElement | null;
+  const canvas = document.getElementById("histogram-canvas") as HTMLCanvasElement | null;
   if (!canvas) return;
 
   const ctx = canvas.getContext("2d");
@@ -1308,8 +1460,6 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   }
 
   bins[0] = 0;
-
-  console.log(bins)
 
   const w = canvas.width;
   const h = canvas.height;
@@ -1415,7 +1565,8 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
 }
 
 function histogramBinFromX(x: number, canvas: HTMLCanvasElement, binCount: number) {
-  const t = x / canvas.width;
+  const displayWidth = canvas.getBoundingClientRect().width;
+  const t = x / displayWidth;
   const b = Math.floor(t * binCount);
   return Math.max(0, Math.min(binCount - 1, b));
 }
@@ -1435,31 +1586,237 @@ function applyHistogramLutFromBins(channelIndex: number) {
   view3D.updateLuts(myState.volume);
 }
 
+function rgb255ToHex(color: [number, number, number]): string {
+  return `#${color
+    .map((component) => Math.max(0, Math.min(255, Math.round(component))).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function rgb01ToHex(color: [number, number, number]): string {
+  return rgb255ToHex([color[0] * 255, color[1] * 255, color[2] * 255]);
+}
+
 function main() {
-  const el = document.getElementById("vol-e");
+  const el = document.getElementById("viewer-panel");
   if (!el) {
     return;
   }
   view3D = new View3d({ parentElement: el });
+  view3D.setBackgroundColor(myState.backgroundColor);
 
-  const sourceUrlInput = document.getElementById("sourceUrlInput") as HTMLInputElement | null;
-  const loadSourceBtn = document.getElementById("loadSourceBtn") as HTMLButtonElement | null;
-  const syncSourceInput = () => {
-    if (!sourceUrlInput) return;
-    const params = new URLSearchParams(window.location.search);
-    sourceUrlInput.value = params.get("src") || "";
+  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
+  if (boundingBoxColorInput) {
+    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
+  }
+
+  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
+  if (backgroundColorInput) {
+    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
+  }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput) {
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
+  }
+
+  const scaleError = document.getElementById("scale-error") as HTMLParagraphElement | null;
+  const setScaleError = (warning?: string) => {
+    if (!scaleError) {
+      return;
+    }
+    scaleError.textContent = warning || "";
+    scaleError.style.display = warning ? "block" : "none";
   };
 
-  loadSourceBtn?.addEventListener("click", () => {
-    const nextSource = sourceUrlInput?.value.trim();
-    if (!nextSource) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set("src", nextSource);
-    window.history.replaceState(null, "", `?${params.toString()}`);
-    syncSourceInput();
-    const initialData = getInitialTestData();
-    loadTestData(initialData.name, initialData.testdata);
+  const getMaxTextureEdge = (): number => {
+    const probeCanvas = document.createElement("canvas");
+    const gl = probeCanvas.getContext("webgl2") || probeCanvas.getContext("webgl");
+    if (!gl) {
+      return 4096;
+    }
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    return Number.isFinite(maxTextureSize) && maxTextureSize > 0 ? maxTextureSize : 4096;
+  };
+
+  const maxTextureEdge = getMaxTextureEdge();
+  const SCALE_TOO_LARGE_MESSAGE = "Selected scale level is too large for this device. Reverted to Auto.";
+
+  const canLevelFitInAtlas = (level: number): boolean => {
+    const dims = myState.volume.imageInfo.imageInfo.multiscaleLevelDims[level];
+    if (!dims) {
+      return true;
+    }
+
+    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), myState.cropXmax - myState.cropXmin);
+    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), myState.cropYmax - myState.cropYmin);
+    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), myState.cropZmax - myState.cropZmin);
+
+    const x = Math.max(1, Math.ceil(dims.shape[4] * cropX));
+    const y = Math.max(1, Math.ceil(dims.shape[3] * cropY));
+    const z = Math.max(1, Math.ceil(dims.shape[2] * cropZ));
+    const xtiles = Math.floor(maxTextureEdge / x);
+    const ytiles = Math.floor(maxTextureEdge / y);
+    return xtiles > 0 && ytiles > 0 && z <= xtiles * ytiles;
+  };
+
+  const applyScaleLevel = async (level?: number): Promise<void> => {
+    await myState.volume.updateRequiredData({
+      useExplicitLevel: level !== undefined,
+      multiscaleLevel: level,
+      maxAtlasEdge: maxTextureEdge,
+    });
+  };
+
+  const omeZarrScaleSelect = document.getElementById("ome-zarr-scale-select") as HTMLSelectElement | null;
+  omeZarrScaleSelect?.addEventListener("change", async () => {
+    const value = omeZarrScaleSelect.value;
+    if (!myState.volume) {
+      return;
+    }
+
+    const revertToAuto = async () => {
+      if (omeZarrScaleSelect) {
+        omeZarrScaleSelect.value = "auto";
+      }
+      await applyScaleLevel();
+    };
+
+    setScaleError();
+
+    if (value === "auto") {
+      try {
+        await applyScaleLevel();
+      } catch (error) {
+        setScaleError(SCALE_TOO_LARGE_MESSAGE);
+      }
+    } else {
+      const level = Number(value);
+      if (!Number.isNaN(level)) {
+        if (!canLevelFitInAtlas(level)) {
+          setScaleError(SCALE_TOO_LARGE_MESSAGE);
+          try {
+            await revertToAuto();
+          } catch {
+          }
+          return;
+        }
+
+        try {
+          await applyScaleLevel(level);
+        } catch (error) {
+          setScaleError(SCALE_TOO_LARGE_MESSAGE);
+          try {
+            await revertToAuto();
+          } catch {
+          }
+        }
+      }
+    }
   });
+
+  const sourceUrlInput =
+    (document.getElementById("source-url-input") as HTMLInputElement | null);
+  const sourceForm =
+    (document.getElementById("source-form") as HTMLFormElement | null);
+  const loadSourceBtn =
+    (document.getElementById("source-load-button") as HTMLButtonElement | null);
+  const sourceError = document.getElementById("source-error") as HTMLParagraphElement | null;
+  const defaultSource = TEST_DATA.zarrQimEscargot.url as string;
+
+  const setSourceError = (warning?: string) => {
+    if (!sourceError) return;
+    sourceError.textContent = warning || "";
+    sourceError.style.display = warning ? "block" : "none";
+  };
+
+  const bindSource = (nextSource?: string): string => {
+    const params = new URLSearchParams(window.location.search);
+    const source = (nextSource ?? params.get("src") ?? "").trim();
+
+    if (source) {
+      params.set("src", source);
+    } else {
+      params.delete("src");
+    }
+    window.history.replaceState(null, "", `?${params.toString()}`);
+
+    if (sourceUrlInput) {
+      sourceUrlInput.value = source;
+    }
+
+    return source;
+  };
+
+  const clearView = () => {
+    view3D.removeAllVolumes();
+    view3D.redraw();
+  };
+
+  const getSourceLoadErrorMessage = (source: string, error: unknown): string => {
+    if (error instanceof VolumeLoadError) {
+      if (error.type === VolumeLoadErrorType.NOT_FOUND || error.type === VolumeLoadErrorType.LOAD_DATA_FAILED) {
+        return "No data found at URL";
+      }
+    }
+    return "Failed to load data from URL";
+  };
+
+  const loadFromCurrentSource = async (isInitialLoad = false) => {
+    let source = bindSource();
+
+    if (isInitialLoad && !source) {
+      source = bindSource(defaultSource);
+    }
+
+    if (!source) {
+      setSourceError("Please provide a source URL.");
+      clearView();
+      return;
+    }
+
+    const type = inferVolumeFileFormat(source);
+    if (!type) {
+      setSourceError(
+        "Invalid URL type. Supported types: .zarr, .ome.zarr, .tif, .tiff, .ome.tif, .ome.tiff"
+      );
+      clearView();
+      return;
+    }
+
+    try {
+      setSourceError();
+      await loadTestData("url", { type, url: source });
+    } catch (error) {
+      console.error(error);
+      setSourceError(getSourceLoadErrorMessage(source, error));
+      clearView();
+    }
+  };
+
+  sourceUrlInput?.addEventListener("input", () => {
+    bindSource(sourceUrlInput.value);
+    setSourceError();
+  });
+  window.addEventListener("popstate", () => {
+    bindSource();
+  });
+
+  const triggerSourceLoad = async () => {
+    const source = bindSource(sourceUrlInput?.value);
+    if (!source) return;
+    await loadFromCurrentSource();
+  };
+
+  sourceForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await triggerSourceLoad();
+  });
+
+  if (!sourceForm) {
+    loadSourceBtn?.addEventListener("click", async () => {
+      await triggerSourceLoad();
+    });
+  }
 
   el.addEventListener("mousemove", (e: Event) => {
     const event = e as MouseEvent;
@@ -1495,16 +1852,28 @@ function main() {
     myState.isTurntable = !myState.isTurntable;
     view3D.setAutoRotate(myState.isTurntable);
   });
-  const axisBtn = document.getElementById("axisBtn");
-  axisBtn?.addEventListener("click", () => {
-    myState.isAxisShowing = !myState.isAxisShowing;
-    view3D.setShowAxis(myState.isAxisShowing);
-  });
-  const showBoundsBtn = document.getElementById("showBoundingBox");
-  showBoundsBtn?.addEventListener("click", () => {
-    myState.showBoundingBox = !myState.showBoundingBox;
-    view3D.setShowBoundingBox(myState.volume, myState.showBoundingBox);
-  });
+  const axisToggle = document.getElementById("axisBtn") as HTMLInputElement | null;
+  if (axisToggle) {
+    if (axisToggle.type === "checkbox") {
+      axisToggle.checked = myState.isAxisShowing;
+    }
+    axisToggle.addEventListener("change", (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      myState.isAxisShowing = target.type === "checkbox" ? target.checked : !myState.isAxisShowing;
+      view3D.setShowAxis(myState.isAxisShowing);
+    });
+  }
+  const showBoundsToggle = document.getElementById("showBoundingBox") as HTMLInputElement | null;
+  if (showBoundsToggle) {
+    if (showBoundsToggle.type === "checkbox") {
+      showBoundsToggle.checked = myState.showBoundingBox;
+    }
+    showBoundsToggle.addEventListener("change", (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      myState.showBoundingBox = target.type === "checkbox" ? target.checked : !myState.showBoundingBox;
+      view3D.setShowBoundingBox(myState.volume, myState.showBoundingBox);
+    });
+  }
   const showScaleBarBtn = document.getElementById("showScaleBar");
   showScaleBarBtn?.addEventListener("click", () => {
     myState.showScaleBar = !myState.showScaleBar;
@@ -1518,6 +1887,10 @@ function main() {
       ? [parseInt(result[1], 16) / 255.0, parseInt(result[2], 16) / 255.0, parseInt(result[3], 16) / 255.0]
       : last;
   }
+  function hexToRgb255(hex, last: [number, number, number]): [number, number, number] {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : last;
+  }
   const boundsColorBtn = document.getElementById("boundingBoxColor");
   boundsColorBtn?.addEventListener("change", (event: Event) => {
     myState.boundingBoxColor = hexToRgb((event.target as HTMLInputElement)?.value, myState.boundingBoxColor);
@@ -1528,6 +1901,39 @@ function main() {
     myState.backgroundColor = hexToRgb((event.target as HTMLInputElement)?.value, myState.backgroundColor);
     view3D.setBackgroundColor(myState.backgroundColor);
   });
+  const objectColorBtn = document.getElementById("objectColor");
+  objectColorBtn?.addEventListener("change", (event: Event) => {
+    myState.foregroundColor = hexToRgb255((event.target as HTMLInputElement)?.value, myState.foregroundColor);
+
+    for (let channelIndex = 0; channelIndex < myState.channelGui.length; channelIndex++) {
+      myState.channelGui[channelIndex].colorD = [...myState.foregroundColor] as [number, number, number];
+      view3D.updateChannelMaterial(
+        myState.volume,
+        channelIndex,
+        myState.channelGui[channelIndex].colorD,
+        myState.channelGui[channelIndex].colorS,
+        myState.channelGui[channelIndex].colorE,
+        myState.channelGui[channelIndex].glossiness
+      );
+      view3D.updateMaterial(myState.volume);
+    }
+  });
+
+  const globalOpacitySlider = document.getElementById("global-opacity-slider") as HTMLInputElement | null;
+  if (globalOpacitySlider) {
+    globalOpacitySlider.value = `${myState.density / 100}`;
+    globalOpacitySlider.style.setProperty("--value", `${Math.round((myState.density / 100) * 100)}`);
+
+    const onGlobalOpacityInput = () => {
+      const sliderValue = Math.min(1, Math.max(0, globalOpacitySlider.valueAsNumber));
+      myState.density = sliderValue * 100;
+      globalOpacitySlider.style.setProperty("--value", `${Math.round(sliderValue * 100)}`);
+      view3D.updateDensity(myState.volume, densitySliderToView3D(myState.density));
+    };
+
+    globalOpacitySlider.addEventListener("input", onGlobalOpacityInput);
+    globalOpacitySlider.addEventListener("change", onGlobalOpacityInput);
+  }
 
   const flipXBtn = document.getElementById("flipXBtn");
   flipXBtn?.addEventListener("click", () => {
@@ -1714,7 +2120,7 @@ function main() {
     view3D.setGamma(myState.volume, g[0], g[1], g[2]);
   });
 
-  const histogramCanvas = document.getElementById("histogramCanvas") as HTMLCanvasElement;
+  const histogramCanvas = document.getElementById("histogram-canvas") as HTMLCanvasElement;
   histogramCanvas.addEventListener("mousedown", (e) => {
     if (!myState.volume) return;
 
@@ -1757,8 +2163,9 @@ function main() {
       return;
     }
 
-    const minX = (histogramSelection.minBin / bins.length) * histogramCanvas.width;
-    const maxX = (histogramSelection.maxBin / bins.length) * histogramCanvas.width;
+    const displayWidth = histogramCanvas.getBoundingClientRect().width;
+    const minX = (histogramSelection.minBin / bins.length) * displayWidth;
+    const maxX = (histogramSelection.maxBin / bins.length) * displayWidth;
     const distMin = Math.abs(x - minX);
     const distMax = Math.abs(x - maxX);
     const nextHover = Math.min(distMin, distMax) <= 6 ? (distMin <= distMax ? "min" : "max") : null;
@@ -1782,11 +2189,10 @@ function main() {
   });
 
   setupColorizeControls();
+  setupCropControls();
   setupGui();
 
-  const initialData = getInitialTestData();
-  syncSourceInput();
-  loadTestData(initialData.name, initialData.testdata);
+  void loadFromCurrentSource(true);
 }
 
 document.body.onload = () => {
