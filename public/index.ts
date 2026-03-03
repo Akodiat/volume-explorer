@@ -116,7 +116,7 @@ const myState: State = {
   showScaleBar: true,
 
   showBoundingBox: false,
-  boundingBoxColor: [0.5, 0.5, 0.5],
+  boundingBoxColor: [0.3, 0.3, 0.3],
   backgroundColor: [0.9, 0.9, 0.9],
   foregroundColor: [0, 170, 255],
   flipX: 1,

@@ -25,13 +25,13 @@ body {
 }
 
 .panel {
-  background-color: rgb(48, 48, 48);
+  background-color: rgb(70, 70, 70);
   min-width: 0;
 }
 
 #controls-panel {
   flex: 1 1 0;
-  padding: 1rem 5rem;
+  padding: 2rem 5rem;
   max-width: 500px;
   min-width: 400px;
   width: 100%;
@@ -96,7 +96,7 @@ body {
 #source-error,
 #scale-error {
   display: none;
-  color: darkred;
+  color: rgb(250, 50, 50);
 }
 
 #controls-panel .scale-level-highlight {
