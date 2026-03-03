@@ -2135,8 +2135,9 @@ function main() {
     view3D.setInterpolationEnabled(myState.volume, myState.interpolationActive);
   });
 
-  const screenshotBtn = document.getElementById("screenshotBtn");
-  screenshotBtn?.addEventListener("click", () => {
+  const screenshotButton =
+    (document.getElementById("screenshot-button") as HTMLButtonElement | null);
+  screenshotButton?.addEventListener("click", () => {
     view3D.capture((dataUrl) => {
       const anchor = document.createElement("a");
       anchor.href = dataUrl;
