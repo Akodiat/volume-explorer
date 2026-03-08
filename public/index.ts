@@ -881,6 +881,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFullRange();
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = 0;
+            histogramSelection.maxBin = 255;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -890,6 +895,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -899,6 +909,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(b, e);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = b;
+            histogramSelection.maxBin = e;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -908,6 +923,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -918,6 +938,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       colorizeEnabled: false,
@@ -1167,10 +1192,10 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
     const bins = hist.bins ?? hist.histogram;
     
     if (bins && bins.length) {
-      const channel = v.channels[0];
       const [minBin, maxBin] = hist.findAutoIJBins();
       histogramSelection.minBin = Math.min(minBin, bins.length - 1);
       histogramSelection.maxBin = Math.min(maxBin, bins.length - 1);
+      applyHistogramLutFromBins(0);
     }
   }
   drawHistogramFromVolume(v, channelIndex);
@@ -1630,10 +1655,6 @@ function applyHistogramLutFromBins(channelIndex: number) {
   const max = histogramSelection.maxBin;
 
   const lut = new Lut().createFromMinMax(min, max);
-  const channel = myState.volume.channels[channelIndex];
-  if (channel) {
-    lut.remapDomains(0, 255, channel.rawMin, channel.rawMax);
-  }
   myState.volume.setLut(channelIndex, lut);
   view3D.updateLuts(myState.volume);
 }
