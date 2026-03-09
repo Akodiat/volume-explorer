@@ -1,6 +1,9 @@
 {
   "name": "@qim3d/volume-explorer",
-  "version": "1.0.0",
+  "version": "1.0.2",
+  "bin": {
+    "volume-explorer": "./bin/volume-explorer.js"
+  },
   "description": "QIM Center volume explorer based on vol-e core.",
   "main": "es/index.js",
   "type": "module",
@@ -35,6 +38,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.25.6",
+    "execa": "^9.6.1",
     "geotiff": "^2.0.5",
     "serialize-error": "^11.0.3",
     "three": "^0.171.0",
