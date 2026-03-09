@@ -1,7 +1,7 @@
 {
-  "name": "@aics/vole-core",
-  "version": "4.5.0",
-  "description": "volume renderer for 3d, 4d, or 5d imaging data with OME-Zarr support",
+  "name": "@qim3d/volume-explorer",
+  "version": "1.0.0",
+  "description": "QIM Center volume explorer based on vol-e core.",
   "main": "es/index.js",
   "type": "module",
   "module": "es/index.js",
