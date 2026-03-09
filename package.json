@@ -1,6 +1,6 @@
 {
   "name": "@qim3d/volume-explorer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "bin": {
     "volume-explorer": "./bin/volume-explorer.js"
   },
@@ -11,6 +11,7 @@
   "types": "es/types/index.d.ts",
   "files": [
     "es",
+    "public",
     "README.md",
     "package.json"
   ],
