@@ -18,6 +18,8 @@ import {
   RENDERMODE_PATHTRACE,
   RENDERMODE_RAYMARCH,
   SKY_LIGHT,
+  VolumeLoadError,
+  VolumeLoadErrorType,
   VolumeFileFormat,
 } from "../src";
 // special loader really just for this demo app but lives with the other loaders
@@ -35,93 +37,14 @@ const MAX_PREFETCH_CHUNKS = 25;
 const PLAYBACK_INTERVAL = 80;
 
 const TEST_DATA: Record<string, TestDataSpec> = {
-  cellpainting: {
-    type: VolumeFileFormat.TIFF,
-    url: [
-      [
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch1sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch2sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch3sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch4sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch5sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch6sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch7sk5fk1fl1.tiff",
-        "https://cellpainting-gallery.s3.us-east-1.amazonaws.com/cpg0000-jump-pilot/source_4/images/2020_12_08_CPJUMP1_Bleaching/images/BR00116992E__2020-11-12T01_22_40-Measurement1/Images/r01c01f01p01-ch8sk5fk1fl1.tiff",
-      ],
-    ],
-  },
-  testpick: {
+  zarrQimEscargot: {
+    url: "https://platform.qim.dk/qim-public/Escargot/Escargot.zarr",
     type: VolumeFileFormat.ZARR,
-    url: "https://allencell.s3.amazonaws.com/aics/nuc-morph-dataset/hipsc_fov_nuclei_timelapse_dataset/hipsc_fov_nuclei_timelapse_data_used_for_analysis/baseline_colonies_fov_timelapse_dataset/20200323_09_small/seg.ome.zarr",
-  },
-  timeSeries: {
-    type: VolumeFileFormat.JSON,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/timelapse/test_parent_T49.ome_%%_atlas.json",
-    times: 46,
   },
   omeTiff: {
     type: VolumeFileFormat.TIFF,
     url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/AICS-12_881.ome.tif",
   },
-  zarrEMT: {
-    url: "https://dev-aics-dtp-001.int.allencell.org/dan-data/3500005818_20230811__20x_Timelapse-02(P27-E7).ome.zarr",
-    type: VolumeFileFormat.ZARR,
-  },
-  zarrIDR1: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0076A/10501752.zarr",
-  },
-  zarrIDR2: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0054A/5025553.zarr",
-  },
-  zarrVariance: {
-    type: VolumeFileFormat.ZARR,
-    url: [
-      "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/variance/1.zarr",
-      "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/variance/2.zarr",
-    ],
-  },
-  zarrNucmorph0: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P13-C4.zarr/",
-  },
-  zarrNucmorph1: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P15-C3.zarr/",
-  },
-  zarrNucmorph2: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P7-B4.zarr/",
-  },
-  zarrNucmorph3: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/20200323_F01_001/P8-B4.zarr/",
-  },
-  zarrFlyBrain: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0048A/9846152.zarr/",
-  },
-  zarrUK: {
-    type: VolumeFileFormat.ZARR,
-    url: "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr",
-  },
-  zarrHumanOrganAtlas: {
-    type: VolumeFileFormat.ZARR,
-    url: "gs://ucl-hip-ct-35a68e99feaae8932b1d44da0358940b/A186/lung-right/24.132um_complete-organ_bm18.ome.zarr/",
-  },
-  opencell: { type: "opencell", url: "" },
-  cfeJson: {
-    type: VolumeFileFormat.JSON,
-    url: "AICS-12_881_atlas.json",
-  },
-  abm: {
-    type: VolumeFileFormat.TIFF,
-    url: "https://animatedcell-test-data.s3.us-west-2.amazonaws.com/HAMILTONIAN_TERM_FOV_VSAHJUP_0000_000192.ome.tif",
-  },
-  procedural: { type: VolumeFileFormat.DATA, url: "", dtype: "uint8" },
-  procedural2: { type: VolumeFileFormat.DATA, url: "", dtype: "uint16" },
-  procedural3: { type: VolumeFileFormat.DATA, url: "", dtype: "float32" },
 };
 
 let view3D: View3d;
@@ -143,7 +66,7 @@ const myState: State = {
     ),
   ],
 
-  density: 12.5,
+  density: 25.0,
   maskAlpha: 1.0,
   exposure: 0.75,
   aperture: 0.0,
@@ -171,6 +94,13 @@ const myState: State = {
   ymax: 1.0,
   zmax: 1.0,
 
+  cropXmin: 0.0,
+  cropYmin: 0.0,
+  cropZmin: 0.0,
+  cropXmax: 1.0,
+  cropYmax: 1.0,
+  cropZmax: 1.0,
+
   samplingRate: 0.25,
   primaryRay: 1.0,
   secondaryRay: 1.0,
@@ -186,8 +116,9 @@ const myState: State = {
   showScaleBar: true,
 
   showBoundingBox: false,
-  boundingBoxColor: [255, 255, 0],
-  backgroundColor: [0, 0, 0],
+  boundingBoxColor: [0.3, 0.3, 0.3],
+  backgroundColor: [0.9, 0.9, 0.9],
+  foregroundColor: [0, 170, 255],
   flipX: 1,
   flipY: 1,
   flipZ: 1,
@@ -207,6 +138,195 @@ const myState: State = {
 };
 
 const getNumberOfTimesteps = (): number => myState.totalFrames || myState.volume.imageInfo.times;
+
+const histogramSelection = {
+  minBin: 0,
+  maxBin: 255,
+  dragging: null as "min" | "max" | null,
+  hover: null as "min" | "max" | null,
+  minHandleHoverWeight: 0,
+  maxHandleHoverWeight: 0,
+};
+
+type CropAxis = "x" | "y" | "z";
+
+type CropStateKey = "cropXmin" | "cropXmax" | "cropYmin" | "cropYmax" | "cropZmin" | "cropZmax";
+
+const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey }> = {
+  x: { min: "cropXmin", max: "cropXmax" },
+  y: { min: "cropYmin", max: "cropYmax" },
+  z: { min: "cropZmin", max: "cropZmax" },
+};
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function applyCropRegionFromState() {
+  view3D.updateCropRegion(
+    myState.volume,
+    myState.cropXmin,
+    myState.cropXmax,
+    myState.cropYmin,
+    myState.cropYmax,
+    myState.cropZmin,
+    myState.cropZmax
+  );
+}
+
+function syncCropFill(axis: CropAxis) {
+  const fill = document.getElementById(`crop-${axis}-fill`) as HTMLElement | null;
+  if (!fill) {
+    return;
+  }
+
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const minValue = myState[minKey] as number;
+  const maxValue = myState[maxKey] as number;
+  fill.style.left = `${minValue * 100}%`;
+  fill.style.right = `${(1 - maxValue) * 100}%`;
+}
+
+function syncCropInputsFromState() {
+  const axes: CropAxis[] = ["x", "y", "z"];
+  for (const axis of axes) {
+    const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
+    const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+    if (!minInput || !maxInput) {
+      continue;
+    }
+
+    const minKey = cropAxisStateKeys[axis].min;
+    const maxKey = cropAxisStateKeys[axis].max;
+    minInput.value = `${myState[minKey]}`;
+    maxInput.value = `${myState[maxKey]}`;
+    syncCropFill(axis);
+  }
+}
+
+function setupCropControls() {
+  const axes: CropAxis[] = ["x", "y", "z"];
+
+  for (const axis of axes) {
+    const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
+    const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+
+    if (!minInput || !maxInput) {
+      continue;
+    }
+
+    const minKey = cropAxisStateKeys[axis].min;
+    const maxKey = cropAxisStateKeys[axis].max;
+
+    const onMinInput = () => {
+      const nextMin = Math.min(clamp01(minInput.valueAsNumber), myState[maxKey] as number);
+      myState[minKey] = nextMin;
+      minInput.value = `${nextMin}`;
+      syncCropFill(axis);
+      applyCropRegionFromState();
+    };
+
+    const onMaxInput = () => {
+      const nextMax = Math.max(clamp01(maxInput.valueAsNumber), myState[minKey] as number);
+      myState[maxKey] = nextMax;
+      maxInput.value = `${nextMax}`;
+      syncCropFill(axis);
+      applyCropRegionFromState();
+    };
+
+    minInput.addEventListener("input", onMinInput);
+    maxInput.addEventListener("input", onMaxInput);
+
+    const mergedSlider = minInput.closest(".crop-merged-slider") as HTMLElement | null;
+    if (mergedSlider) {
+      let activeHandle: "min" | "max" | null = null;
+
+      const updateFromClientX = (clientX: number, handle: "min" | "max") => {
+        const rect = mergedSlider.getBoundingClientRect();
+        if (rect.width <= 0) {
+          return;
+        }
+
+        const normalized = clamp01((clientX - rect.left) / rect.width);
+        const minValue = myState[minKey] as number;
+        const maxValue = myState[maxKey] as number;
+
+        if (handle === "min") {
+          const nextMin = Math.min(normalized, maxValue);
+          myState[minKey] = nextMin;
+          minInput.value = `${nextMin}`;
+        } else {
+          const nextMax = Math.max(normalized, minValue);
+          myState[maxKey] = nextMax;
+          maxInput.value = `${nextMax}`;
+        }
+
+        syncCropFill(axis);
+        applyCropRegionFromState();
+      };
+
+      mergedSlider.addEventListener("pointerdown", (event: PointerEvent) => {
+        const target = event.target as HTMLElement;
+        if (target === minInput || target === maxInput) {
+          return;
+        }
+
+        const rect = mergedSlider.getBoundingClientRect();
+        if (rect.width <= 0) {
+          return;
+        }
+
+        const normalized = clamp01((event.clientX - rect.left) / rect.width);
+        const minValue = myState[minKey] as number;
+        const maxValue = myState[maxKey] as number;
+        const minDistance = Math.abs(normalized - minValue);
+        const maxDistance = Math.abs(normalized - maxValue);
+
+        activeHandle = minDistance <= maxDistance ? "min" : "max";
+        updateFromClientX(event.clientX, activeHandle);
+        mergedSlider.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+
+      mergedSlider.addEventListener("pointermove", (event: PointerEvent) => {
+        if (!activeHandle) {
+          return;
+        }
+        updateFromClientX(event.clientX, activeHandle);
+        event.preventDefault();
+      });
+
+      const stopDrag = (event: PointerEvent) => {
+        if (!activeHandle) {
+          return;
+        }
+        activeHandle = null;
+        if (mergedSlider.hasPointerCapture(event.pointerId)) {
+          mergedSlider.releasePointerCapture(event.pointerId);
+        }
+      };
+
+      mergedSlider.addEventListener("pointerup", stopDrag);
+      mergedSlider.addEventListener("pointercancel", stopDrag);
+    }
+  }
+
+  const resetCropBtn = document.getElementById("crop-reset-button") as HTMLButtonElement | null;
+  resetCropBtn?.addEventListener("click", () => {
+    myState.cropXmin = 0;
+    myState.cropXmax = 1;
+    myState.cropYmin = 0;
+    myState.cropYmax = 1;
+    myState.cropZmin = 0;
+    myState.cropZmax = 1;
+
+    syncCropInputsFromState();
+    applyCropRegionFromState();
+  });
+
+  syncCropInputsFromState();
+}
 
 function densitySliderToView3D(density: number) {
   return density / 50.0;
@@ -286,8 +406,35 @@ function setInitialRenderMode() {
 
 let gui: GUI;
 
-function setupGui() {
-  gui = new GUI();
+function setupGui(container: HTMLElement) {
+  gui = new GUI({ container });
+  gui.hide();
+
+  if (window.getComputedStyle(container).position === "static") {
+    container.style.position = "relative";
+  }
+
+  gui.domElement.style.position = "absolute";
+  gui.domElement.style.top = "0";
+  gui.domElement.style.left = "0";
+  gui.domElement.style.right = "auto";
+
+  let guiVisible = false;
+
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isShortcut = event.ctrlKey && event.altKey && (event.code === "Digit2" || event.code === "Numpad2");
+    if (!isShortcut) {
+      return;
+    }
+
+    event.preventDefault();
+    guiVisible = !guiVisible;
+    if (guiVisible) {
+      gui.show();
+    } else {
+      gui.hide();
+    }
+  });
 
   gui
     .add(myState, "density")
@@ -641,6 +788,41 @@ function updateScenesUI() {
   sceneInput.value = `${Math.min(myState.scene, maxSceneIndex)}`;
 }
 
+function updateOmeZarrScaleSelect(volume: Volume) {
+  const selectEl = document.getElementById("ome-zarr-scale-select") as HTMLSelectElement | null;
+  if (!selectEl) {
+    return;
+  }
+  const scaleLabelEl = document.getElementById("ome-zarr-scale-level-value");
+
+  const totalLevels = volume.imageInfo.numMultiscaleLevels;
+  const currentLevel = volume.imageInfo.multiscaleLevel;
+
+  selectEl.innerHTML = "";
+
+  const autoOption = document.createElement("option");
+  autoOption.value = "auto";
+  autoOption.textContent = "Auto";
+  selectEl.appendChild(autoOption);
+
+  for (let i = 0; i < totalLevels; i++) {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = `Level ${i}`;
+    selectEl.appendChild(option);
+  }
+
+  if (volume.loadSpec.useExplicitLevel) {
+    selectEl.value = String(currentLevel);
+  } else {
+    selectEl.value = "auto";
+  }
+
+  if (scaleLabelEl) {
+    scaleLabelEl.textContent = totalLevels > 1 ? `${currentLevel}/${totalLevels - 1}` : "n/a";
+  }
+}
+
 function updateChannelUI(vol: Volume, channelIndex: number) {
   const channel = vol.channels[channelIndex];
 
@@ -684,7 +866,7 @@ function showChannelUI(volume: Volume) {
   myState.channelFolderNames = [];
   for (let i = 0; i < nChannels; ++i) {
     myState.channelGui.push({
-      colorD: volume.channelColorsDefault[i],
+      colorD: [...myState.foregroundColor] as [number, number, number],
       colorS: [0, 0, 0],
       colorE: [0, 0, 0],
       window: 1.0,
@@ -699,6 +881,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFullRange();
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = 0;
+            histogramSelection.maxBin = 255;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -708,6 +895,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -717,6 +909,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(b, e);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = b;
+            histogramSelection.maxBin = e;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // this doesn't give good results currently but is an example of a per-channel button callback
@@ -726,6 +923,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -736,6 +938,11 @@ function showChannelUI(volume: Volume) {
           const lut = new Lut().createFromMinMax(hmin, hmax);
           volume.setLut(j, lut);
           view3D.updateLuts(volume);
+          if (j === 0) {
+            histogramSelection.minBin = hmin;
+            histogramSelection.maxBin = hmax;
+            drawHistogramFromVolume(volume, 0);
+          }
         };
       })(i),
       colorizeEnabled: false,
@@ -907,6 +1114,23 @@ function showChannelUI(volume: Volume) {
         })(i)
       );
   }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput && myState.channelGui.length > 0) {
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
+  }
+
+  for (let channelIndex = 0; channelIndex < myState.channelGui.length; channelIndex++) {
+    view3D.updateChannelMaterial(
+      volume,
+      channelIndex,
+      myState.channelGui[channelIndex].colorD,
+      myState.channelGui[channelIndex].colorS,
+      myState.channelGui[channelIndex].colorE,
+      myState.channelGui[channelIndex].glossiness
+    );
+  }
+  view3D.updateMaterial(volume);
 }
 
 function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
@@ -949,8 +1173,13 @@ function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
 
 function onChannelDataArrived(v: Volume, channelIndex: number) {
   const currentVol = v; // myState.volume;
-
-  // optionally can set the LUT here (for example if this is first time loading)
+  const LUT_MIN_PERCENTILE = 0.925;
+  const LUT_MAX_PERCENTILE = 0.99;
+  const hist = v.getHistogram(channelIndex);
+  const hmin = hist.findBinOfPercentile(LUT_MIN_PERCENTILE);
+  const hmax = hist.findBinOfPercentile(LUT_MAX_PERCENTILE);
+  const lut = new Lut().createFromMinMax(hmin, hmax);
+  v.setLut(channelIndex, lut);
 
   view3D.onVolumeData(currentVol, [channelIndex]);
   view3D.setVolumeChannelEnabled(currentVol, channelIndex, myState.channelGui[channelIndex].enabled);
@@ -961,8 +1190,14 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
   if (currentVol.isLoaded()) {
     console.log("currentVol with name " + currentVol.name + " is loaded");
   }
-  updateChannelUI(currentVol, channelIndex);
+  updateChannelUI(currentVol, channelIndex)
 
+  if (channelIndex === 0) {
+    histogramSelection.minBin = hmin;
+    histogramSelection.maxBin = hmax;
+  }
+  drawHistogramFromVolume(v, channelIndex);
+  updateOmeZarrScaleSelect(v);
   view3D.redraw();
 }
 
@@ -980,6 +1215,7 @@ function onVolumeCreated(name: string, volume: Volume) {
   view3D.updateLights(myState.lights);
   view3D.updateDensity(myState.volume, densitySliderToView3D(myState.density));
   view3D.updateExposure(myState.exposure);
+  view3D.setBoundingBoxColor(myState.volume, myState.boundingBoxColor);
 
   // apply a volume transform from an external source:
   if (myJson.transform) {
@@ -999,7 +1235,10 @@ function onVolumeCreated(name: string, volume: Volume) {
   updateTimeUI();
   updateScenesUI();
   updateZSliceUI(myState.volume);
+  syncCropInputsFromState();
+  applyCropRegionFromState();
   showChannelUI(myState.volume);
+  updateOmeZarrScaleSelect(myState.volume);
 }
 
 function setSyncMultichannelLoading(sync: boolean) {
@@ -1153,9 +1392,39 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   myState.loader = await createLoader(testdata);
 
   const loadSpec = new LoadSpec();
+  if (testdata.type === VolumeFileFormat.ZARR) {
+    const scaleParam = new URLSearchParams(window.location.search).get("scale")?.trim().toLowerCase();
+    if (scaleParam === "min") {
+      loadSpec.useExplicitLevel = true;
+      loadSpec.multiscaleLevel = Number.MAX_SAFE_INTEGER;
+    } else {
+      const level = Number(scaleParam);
+      if (scaleParam && Number.isInteger(level) && level >= 0) {
+        loadSpec.useExplicitLevel = true;
+        loadSpec.multiscaleLevel = level;
+      }
+    }
+  }
+
   myState.totalFrames = testdata.times;
   const loader = myState.loader[Math.max(myState.scene, myState.loader.length - 1)];
-  loadVolume(name, loadSpec, loader);
+  await loadVolume(name, loadSpec, loader);
+}
+
+function inferVolumeFileFormat(sourceUrl: string): VolumeFileFormat | null {
+  const normalized = sourceUrl.toLowerCase();
+  if (normalized.includes(".ome.zarr") || normalized.endsWith(".zarr") || normalized.includes(".zarr/")) {
+    return VolumeFileFormat.ZARR;
+  }
+  if (
+    normalized.endsWith(".ome.tiff") ||
+    normalized.endsWith(".tiff") ||
+    normalized.endsWith(".ome.tif") ||
+    normalized.endsWith(".tif")
+  ) {
+    return VolumeFileFormat.TIFF;
+  }
+  return null;
 }
 
 function gammaSliderToImageValues(sliderValues: [number, number, number]): [number, number, number] {
@@ -1250,12 +1519,410 @@ function setupColorizeControls() {
   });
 }
 
+function drawHistogramFromVolume(v: Volume, channelIndex: number) {
+  const canvas = document.getElementById("histogram-canvas") as HTMLCanvasElement | null;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const hist = v.getHistogram(channelIndex) as any;
+
+  const bins: number[] | Uint32Array | undefined =
+    hist.bins ?? hist.histogram;
+
+  if (!bins || bins.length === 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  bins[0] = 0;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const labelPad = 16;
+  const plotH = h - labelPad;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#3f3f3f";
+  ctx.fillRect(0, 0, w, h);
+
+  // log-scaled
+  let maxLog = 0;
+  for (let i = 0; i < bins.length; i++) {
+    const v = Math.log1p(bins[i]);
+    if (v > maxLog) maxLog = v;
+  }
+
+  if (maxLog === 0) return;
+
+
+  const barWidth = w / bins.length;
+
+  ctx.fillStyle = "#b3b3b3";
+
+  for (let i = 0; i < bins.length; i++) {
+    const v0 = Math.log1p(bins[i]) / maxLog;
+    const barHeight = v0 * plotH;
+
+    ctx.fillRect(
+      i * barWidth,
+      plotH - barHeight,
+      Math.max(1, barWidth),
+      barHeight
+    );
+  }
+
+  const minB = histogramSelection.minBin;
+  const maxB = histogramSelection.maxBin;
+
+  const x0 = (minB / bins.length) * w;
+  const x1 = (maxB / bins.length) * w;
+
+  if (x1 > x0) {
+    const rampGradient = ctx.createLinearGradient(x0, 0, x1, 0);
+    rampGradient.addColorStop(0, "rgba(255,255,255,0.0)");
+    rampGradient.addColorStop(1, "rgba(255,255,255,0.6)");
+    ctx.fillStyle = rampGradient;
+
+    ctx.beginPath();
+    ctx.moveTo(x0, plotH);
+    ctx.lineTo(x1, 0);
+    ctx.lineTo(x1, plotH);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillRect(x1, 0, Math.max(0, w - x1), plotH);
+
+  // handles
+  const minHover = histogramSelection.hover === "min" || histogramSelection.dragging === "min";
+  const maxHover = histogramSelection.hover === "max" || histogramSelection.dragging === "max";
+
+  const canvasStyles = window.getComputedStyle(canvas);
+  const handleColor = canvasStyles.getPropertyValue("--histogram-handle-color").trim() || "#000000";
+  const handleWidth = Number(canvasStyles.getPropertyValue("--histogram-handle-width").trim()) || 4;
+  const handleWidthHover = Number(canvasStyles.getPropertyValue("--histogram-handle-width-hover").trim()) || 6;
+  const handleWidthDelta = handleWidthHover - handleWidth;
+
+  ctx.strokeStyle = handleColor;
+  const minWeight = minHover
+    ? Math.max(histogramSelection.minHandleHoverWeight, 1)
+    : histogramSelection.minHandleHoverWeight;
+  ctx.lineWidth = handleWidth + handleWidthDelta * minWeight;
+
+  ctx.beginPath();
+  ctx.moveTo(x0, 0);
+  ctx.lineTo(x0, plotH);
+  ctx.stroke();
+
+  const maxWeight = maxHover
+    ? Math.max(histogramSelection.maxHandleHoverWeight, 1)
+    : histogramSelection.maxHandleHoverWeight;
+  ctx.lineWidth = handleWidth + handleWidthDelta * maxWeight;
+  ctx.beginPath();
+  ctx.moveTo(x1, 0);
+  ctx.lineTo(x1, plotH);
+  ctx.stroke();
+
+  // axes and ticks
+  ctx.strokeStyle = "#6a6a6a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, plotH - 1);
+  ctx.lineTo(w, plotH - 1);
+  ctx.moveTo(1, 0);
+  ctx.lineTo(1, plotH);
+  ctx.stroke();
+
+  const xTicks = 5;
+  ctx.fillStyle = "#8a8a8a";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let i = 0; i <= xTicks; i++) {
+    const x = (i / xTicks) * w;
+    ctx.beginPath();
+    ctx.moveTo(x, plotH - 1);
+    ctx.lineTo(x, plotH - 7);
+    ctx.stroke();
+    const binIndex = (i / xTicks) * (bins.length - 1);
+    const labelValue = hist.getValueFromBinIndex(binIndex);
+    ctx.fillText(`${Math.round(labelValue)}`, x, plotH + 2);
+  }
+}
+
+function histogramBinFromX(x: number, canvas: HTMLCanvasElement, binCount: number) {
+  const displayWidth = canvas.getBoundingClientRect().width;
+  const t = x / displayWidth;
+  const b = Math.floor(t * binCount);
+  return Math.max(0, Math.min(binCount - 1, b));
+}
+
+function applyHistogramLutFromBins(channelIndex: number) {
+  if (!myState.volume) return;
+
+  const min = histogramSelection.minBin;
+  const max = histogramSelection.maxBin;
+
+  const lut = new Lut().createFromMinMax(min, max);
+  myState.volume.setLut(channelIndex, lut);
+  view3D.updateLuts(myState.volume);
+}
+
+function rgb255ToHex(color: [number, number, number]): string {
+  return `#${color
+    .map((component) => Math.max(0, Math.min(255, Math.round(component))).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function rgb01ToHex(color: [number, number, number]): string {
+  return rgb255ToHex([color[0] * 255, color[1] * 255, color[2] * 255]);
+}
+
 function main() {
-  const el = document.getElementById("vol-e");
+  const urlParams = new URLSearchParams(window.location.search);
+  const hiddenParam = urlParams.get("hidden")?.trim().toLowerCase();
+  const turntableParam = urlParams.get("turntable")?.trim().toLowerCase();
+  if (hiddenParam === "true") {
+    const controlsPanel = document.getElementById("controls-panel");
+    if (controlsPanel) {
+      controlsPanel.classList.add("hidden");
+    }
+  }
+
+  const el = document.getElementById("viewer-panel");
   if (!el) {
     return;
   }
   view3D = new View3d({ parentElement: el });
+  view3D.setBackgroundColor(myState.backgroundColor);
+
+  if (turntableParam === "true") {
+    const appLayout = document.querySelector(".flex-layout");
+    appLayout?.addEventListener("mouseenter", () => {
+      view3D.setAutoRotate(true);
+    });
+    appLayout?.addEventListener("mouseleave", () => {
+      view3D.setAutoRotate(false);
+    });
+  }
+
+  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
+  if (boundingBoxColorInput) {
+    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
+  }
+
+  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
+  if (backgroundColorInput) {
+    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
+  }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput) {
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
+  }
+
+  const scaleError = document.getElementById("scale-error") as HTMLParagraphElement | null;
+  const setScaleError = (warning?: string) => {
+    if (!scaleError) {
+      return;
+    }
+    scaleError.textContent = warning || "";
+    scaleError.style.display = warning ? "block" : "none";
+  };
+
+  const getMaxTextureEdge = (): number => {
+    const probeCanvas = document.createElement("canvas");
+    const gl = probeCanvas.getContext("webgl2") || probeCanvas.getContext("webgl");
+    if (!gl) {
+      return 4096;
+    }
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    return Number.isFinite(maxTextureSize) && maxTextureSize > 0 ? maxTextureSize : 4096;
+  };
+
+  const maxTextureEdge = getMaxTextureEdge();
+  const SCALE_TOO_LARGE_MESSAGE = "Selected scale level is too large for this device. Reverted to Auto.";
+
+  const canLevelFitInAtlas = (level: number): boolean => {
+    const dims = myState.volume.imageInfo.imageInfo.multiscaleLevelDims[level];
+    if (!dims) {
+      return true;
+    }
+
+    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), myState.cropXmax - myState.cropXmin);
+    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), myState.cropYmax - myState.cropYmin);
+    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), myState.cropZmax - myState.cropZmin);
+
+    const x = Math.max(1, Math.ceil(dims.shape[4] * cropX));
+    const y = Math.max(1, Math.ceil(dims.shape[3] * cropY));
+    const z = Math.max(1, Math.ceil(dims.shape[2] * cropZ));
+    const xtiles = Math.floor(maxTextureEdge / x);
+    const ytiles = Math.floor(maxTextureEdge / y);
+    return xtiles > 0 && ytiles > 0 && z <= xtiles * ytiles;
+  };
+
+  const applyScaleLevel = async (level?: number): Promise<void> => {
+    await myState.volume.updateRequiredData({
+      useExplicitLevel: level !== undefined,
+      multiscaleLevel: level,
+      maxAtlasEdge: maxTextureEdge,
+    });
+  };
+
+  const omeZarrScaleSelect = document.getElementById("ome-zarr-scale-select") as HTMLSelectElement | null;
+  omeZarrScaleSelect?.addEventListener("change", async () => {
+    const value = omeZarrScaleSelect.value;
+    if (!myState.volume) {
+      return;
+    }
+
+    const revertToAuto = async () => {
+      if (omeZarrScaleSelect) {
+        omeZarrScaleSelect.value = "auto";
+      }
+      await applyScaleLevel();
+    };
+
+    setScaleError();
+
+    if (value === "auto") {
+      try {
+        await applyScaleLevel();
+      } catch (error) {
+        setScaleError(SCALE_TOO_LARGE_MESSAGE);
+      }
+    } else {
+      const level = Number(value);
+      if (!Number.isNaN(level)) {
+        if (!canLevelFitInAtlas(level)) {
+          setScaleError(SCALE_TOO_LARGE_MESSAGE);
+          try {
+            await revertToAuto();
+          } catch {
+          }
+          return;
+        }
+
+        try {
+          await applyScaleLevel(level);
+        } catch (error) {
+          setScaleError(SCALE_TOO_LARGE_MESSAGE);
+          try {
+            await revertToAuto();
+          } catch {
+          }
+        }
+      }
+    }
+  });
+
+  const sourceUrlInput =
+    (document.getElementById("source-url-input") as HTMLInputElement | null);
+  const sourceForm =
+    (document.getElementById("source-form") as HTMLFormElement | null);
+  const loadSourceBtn =
+    (document.getElementById("source-load-button") as HTMLButtonElement | null);
+  const sourceError = document.getElementById("source-error") as HTMLParagraphElement | null;
+  const defaultSource = TEST_DATA.zarrQimEscargot.url as string;
+
+  const setSourceError = (warning?: string) => {
+    if (!sourceError) return;
+    sourceError.textContent = warning || "";
+    sourceError.style.display = warning ? "block" : "none";
+  };
+
+  const bindSource = (nextSource?: string): string => {
+    const params = new URLSearchParams(window.location.search);
+    const source = (nextSource ?? params.get("src") ?? "").trim();
+
+    if (source) {
+      params.set("src", source);
+    } else {
+      params.delete("src");
+    }
+    window.history.replaceState(null, "", `?${params.toString()}`);
+
+    if (sourceUrlInput) {
+      sourceUrlInput.value = source;
+    }
+
+    return source;
+  };
+
+  const clearView = () => {
+    view3D.removeAllVolumes();
+    view3D.redraw();
+  };
+
+  const getSourceLoadErrorMessage = (source: string, error: unknown): string => {
+    if (error instanceof VolumeLoadError) {
+      if (error.type === VolumeLoadErrorType.NOT_FOUND || error.type === VolumeLoadErrorType.LOAD_DATA_FAILED) {
+        return "No data found at URL";
+      }
+    }
+    return "Failed to load data from URL";
+  };
+
+  const loadFromCurrentSource = async (isInitialLoad = false) => {
+    let source = bindSource();
+
+    if (isInitialLoad && !source) {
+      source = bindSource(defaultSource);
+    }
+
+    if (!source) {
+      setSourceError("Please provide a source URL.");
+      clearView();
+      return;
+    }
+
+    const type = inferVolumeFileFormat(source);
+    if (!type) {
+      setSourceError(
+        "Invalid URL type. Supported types: .zarr, .ome.zarr, .tif, .tiff, .ome.tif, .ome.tiff"
+      );
+      clearView();
+      return;
+    }
+
+    try {
+      setScaleError();
+      setSourceError();
+      await loadTestData("url", { type, url: source });
+    } catch (error) {
+      console.error(error);
+      setSourceError(getSourceLoadErrorMessage(source, error));
+      clearView();
+    }
+  };
+
+  sourceUrlInput?.addEventListener("input", () => {
+    bindSource(sourceUrlInput.value);
+    setSourceError();
+  });
+  window.addEventListener("popstate", () => {
+    bindSource();
+  });
+
+  const triggerSourceLoad = async () => {
+    const source = bindSource(sourceUrlInput?.value);
+    if (!source) return;
+    await loadFromCurrentSource();
+  };
+
+  sourceForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await triggerSourceLoad();
+  });
+
+  if (!sourceForm) {
+    loadSourceBtn?.addEventListener("click", async () => {
+      await triggerSourceLoad();
+    });
+  }
 
   el.addEventListener("mousemove", (e: Event) => {
     const event = e as MouseEvent;
@@ -1267,15 +1934,6 @@ function main() {
     } else {
       el.style.cursor = "default";
       view3D.setSelectedID(myState.volume, myState.colorizeChannel, -1);
-    }
-  });
-
-  const testDataSelect = document.getElementById("testData");
-  testDataSelect?.addEventListener("change", ({ currentTarget }) => {
-    const selected = (currentTarget as HTMLOptionElement)?.value;
-    const testdata = TEST_DATA[selected];
-    if (testdata) {
-      loadTestData(selected, testdata);
     }
   });
 
@@ -1300,16 +1958,29 @@ function main() {
     myState.isTurntable = !myState.isTurntable;
     view3D.setAutoRotate(myState.isTurntable);
   });
-  const axisBtn = document.getElementById("axisBtn");
-  axisBtn?.addEventListener("click", () => {
-    myState.isAxisShowing = !myState.isAxisShowing;
-    view3D.setShowAxis(myState.isAxisShowing);
-  });
-  const showBoundsBtn = document.getElementById("showBoundingBox");
-  showBoundsBtn?.addEventListener("click", () => {
-    myState.showBoundingBox = !myState.showBoundingBox;
-    view3D.setShowBoundingBox(myState.volume, myState.showBoundingBox);
-  });
+  const axisToggle = document.getElementById("axisBtn") as HTMLInputElement | null;
+  if (axisToggle) {
+    if (axisToggle.type === "checkbox") {
+      axisToggle.checked = myState.isAxisShowing;
+    }
+    axisToggle.addEventListener("change", (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      myState.isAxisShowing = target.type === "checkbox" ? target.checked : !myState.isAxisShowing;
+      view3D.setShowAxis(myState.isAxisShowing);
+    });
+  }
+  const showBoundsToggle = document.getElementById("showBoundingBox") as HTMLInputElement | null;
+  if (showBoundsToggle) {
+    if (showBoundsToggle.type === "checkbox") {
+      showBoundsToggle.checked = myState.showBoundingBox;
+    }
+    showBoundsToggle.addEventListener("change", (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      myState.showBoundingBox = target.type === "checkbox" ? target.checked : !myState.showBoundingBox;
+      view3D.setBoundingBoxColor(myState.volume, myState.boundingBoxColor);
+      view3D.setShowBoundingBox(myState.volume, myState.showBoundingBox);
+    });
+  }
   const showScaleBarBtn = document.getElementById("showScaleBar");
   showScaleBarBtn?.addEventListener("click", () => {
     myState.showScaleBar = !myState.showScaleBar;
@@ -1323,6 +1994,10 @@ function main() {
       ? [parseInt(result[1], 16) / 255.0, parseInt(result[2], 16) / 255.0, parseInt(result[3], 16) / 255.0]
       : last;
   }
+  function hexToRgb255(hex, last: [number, number, number]): [number, number, number] {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : last;
+  }
   const boundsColorBtn = document.getElementById("boundingBoxColor");
   boundsColorBtn?.addEventListener("change", (event: Event) => {
     myState.boundingBoxColor = hexToRgb((event.target as HTMLInputElement)?.value, myState.boundingBoxColor);
@@ -1333,6 +2008,39 @@ function main() {
     myState.backgroundColor = hexToRgb((event.target as HTMLInputElement)?.value, myState.backgroundColor);
     view3D.setBackgroundColor(myState.backgroundColor);
   });
+  const objectColorBtn = document.getElementById("objectColor");
+  objectColorBtn?.addEventListener("change", (event: Event) => {
+    myState.foregroundColor = hexToRgb255((event.target as HTMLInputElement)?.value, myState.foregroundColor);
+
+    for (let channelIndex = 0; channelIndex < myState.channelGui.length; channelIndex++) {
+      myState.channelGui[channelIndex].colorD = [...myState.foregroundColor] as [number, number, number];
+      view3D.updateChannelMaterial(
+        myState.volume,
+        channelIndex,
+        myState.channelGui[channelIndex].colorD,
+        myState.channelGui[channelIndex].colorS,
+        myState.channelGui[channelIndex].colorE,
+        myState.channelGui[channelIndex].glossiness
+      );
+      view3D.updateMaterial(myState.volume);
+    }
+  });
+
+  const globalOpacitySlider = document.getElementById("global-opacity-slider") as HTMLInputElement | null;
+  if (globalOpacitySlider) {
+    globalOpacitySlider.value = `${myState.density / 100}`;
+    globalOpacitySlider.style.setProperty("--value", `${Math.round((myState.density / 100) * 100)}`);
+
+    const onGlobalOpacityInput = () => {
+      const sliderValue = Math.min(1, Math.max(0, globalOpacitySlider.valueAsNumber));
+      myState.density = sliderValue * 100;
+      globalOpacitySlider.style.setProperty("--value", `${Math.round(sliderValue * 100)}`);
+      view3D.updateDensity(myState.volume, densitySliderToView3D(myState.density));
+    };
+
+    globalOpacitySlider.addEventListener("input", onGlobalOpacityInput);
+    globalOpacitySlider.addEventListener("change", onGlobalOpacityInput);
+  }
 
   const flipXBtn = document.getElementById("flipXBtn");
   flipXBtn?.addEventListener("click", () => {
@@ -1481,8 +2189,9 @@ function main() {
     view3D.setInterpolationEnabled(myState.volume, myState.interpolationActive);
   });
 
-  const screenshotBtn = document.getElementById("screenshotBtn");
-  screenshotBtn?.addEventListener("click", () => {
+  const screenshotButton =
+    (document.getElementById("screenshot-button") as HTMLButtonElement | null);
+  screenshotButton?.addEventListener("click", () => {
     view3D.capture((dataUrl) => {
       const anchor = document.createElement("a");
       anchor.href = dataUrl;
@@ -1519,10 +2228,131 @@ function main() {
     view3D.setGamma(myState.volume, g[0], g[1], g[2]);
   });
 
-  setupColorizeControls();
-  setupGui();
+  const histogramCanvas = document.getElementById("histogram-canvas") as HTMLCanvasElement;
+  let histogramHandleAnimationFrame: number | null = null;
 
-  loadTestData((testDataSelect as HTMLSelectElement)?.value, TEST_DATA[(testDataSelect as HTMLSelectElement)?.value]);
+  const animateHistogramHandleHover = () => {
+    if (!myState.volume) {
+      histogramSelection.minHandleHoverWeight = 0;
+      histogramSelection.maxHandleHoverWeight = 0;
+      histogramHandleAnimationFrame = null;
+      return;
+    }
+
+    const targetMin = histogramSelection.hover === "min" || histogramSelection.dragging === "min" ? 1 : 0;
+    const targetMax = histogramSelection.hover === "max" || histogramSelection.dragging === "max" ? 1 : 0;
+    const canvasStyles = window.getComputedStyle(histogramCanvas);
+    const speedRaw = Number(canvasStyles.getPropertyValue("--histogram-handle-hover-speed").trim());
+    const easing = Number.isFinite(speedRaw) ? Math.min(1, Math.max(0.01, speedRaw)) : 0.25;
+
+    histogramSelection.minHandleHoverWeight +=
+      (targetMin - histogramSelection.minHandleHoverWeight) * easing;
+    histogramSelection.maxHandleHoverWeight +=
+      (targetMax - histogramSelection.maxHandleHoverWeight) * easing;
+
+    const minDone = Math.abs(targetMin - histogramSelection.minHandleHoverWeight) < 0.01;
+    const maxDone = Math.abs(targetMax - histogramSelection.maxHandleHoverWeight) < 0.01;
+
+    if (minDone) {
+      histogramSelection.minHandleHoverWeight = targetMin;
+    }
+    if (maxDone) {
+      histogramSelection.maxHandleHoverWeight = targetMax;
+    }
+
+    drawHistogramFromVolume(myState.volume, 0);
+
+    if (minDone && maxDone) {
+      histogramHandleAnimationFrame = null;
+      return;
+    }
+
+    histogramHandleAnimationFrame = window.requestAnimationFrame(animateHistogramHandleHover);
+  };
+
+  const requestHistogramHandleAnimation = () => {
+    if (histogramHandleAnimationFrame !== null) {
+      return;
+    }
+    histogramHandleAnimationFrame = window.requestAnimationFrame(animateHistogramHandleHover);
+  };
+
+  histogramCanvas.addEventListener("mousedown", (e) => {
+    if (!myState.volume) return;
+
+    const rect = histogramCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    const hist = myState.volume.getHistogram(0) as any;
+    const bins = hist.bins ?? hist.histogram;
+    if (!bins) return;
+
+    const b = histogramBinFromX(x, histogramCanvas, bins.length);
+
+    const dMin = Math.abs(b - histogramSelection.minBin);
+    const dMax = Math.abs(b - histogramSelection.maxBin);
+
+    histogramSelection.dragging = dMin < dMax ? "min" : "max";
+    requestHistogramHandleAnimation();
+  });
+
+  histogramCanvas.addEventListener("mousemove", (e) => {
+    if (!myState.volume) return;
+
+    const rect = histogramCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    const hist = myState.volume.getHistogram(0) as any;
+    const bins = hist.bins ?? hist.histogram;
+    if (!bins) return;
+
+    if (histogramSelection.dragging) {
+      const b = histogramBinFromX(x, histogramCanvas, bins.length);
+
+      if (histogramSelection.dragging === "min") {
+        histogramSelection.minBin = Math.min(b, histogramSelection.maxBin);
+      } else {
+        histogramSelection.maxBin = Math.max(b, histogramSelection.minBin);
+      }
+
+      applyHistogramLutFromBins(0);
+      drawHistogramFromVolume(myState.volume, 0);
+      requestHistogramHandleAnimation();
+      return;
+    }
+
+    const displayWidth = histogramCanvas.getBoundingClientRect().width;
+    const minX = (histogramSelection.minBin / bins.length) * displayWidth;
+    const maxX = (histogramSelection.maxBin / bins.length) * displayWidth;
+    const distMin = Math.abs(x - minX);
+    const distMax = Math.abs(x - maxX);
+    const nextHover = Math.min(distMin, distMax) <= 6 ? (distMin <= distMax ? "min" : "max") : null;
+
+    if (nextHover !== histogramSelection.hover) {
+      histogramSelection.hover = nextHover;
+      requestHistogramHandleAnimation();
+    }
+
+    histogramCanvas.style.cursor = nextHover ? "ew-resize" : "default";
+  });
+
+  histogramCanvas.addEventListener("mouseup", () => {
+    histogramSelection.dragging = null;
+    requestHistogramHandleAnimation();
+  });
+  
+  histogramCanvas.addEventListener("mouseleave", () => {
+    histogramSelection.dragging = null;
+    histogramSelection.hover = null;
+    histogramCanvas.style.cursor = "default";
+    requestHistogramHandleAnimation();
+  });
+
+  setupColorizeControls();
+  setupCropControls();
+  setupGui(el);
+
+  void loadFromCurrentSource(true);
 }
 
 document.body.onload = () => {

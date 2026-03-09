@@ -1,0 +1,227 @@
+:root {
+  --controls-item-margin-y: 2rem;
+  --form-control-color-radius: 0.3rem;
+  --controls-color-input-height: 1.5rem;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+  color: white;
+}
+
+.hidden {
+  display : none
+}
+
+.flex-layout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.panel {
+  background-color: rgb(70, 70, 70);
+  min-width: 0;
+}
+
+#controls-panel {
+  flex: 1 1 0;
+  padding: 2rem 5rem;
+  max-width: 500px;
+  min-width: 400px;
+  width: 100%;
+}
+
+#controls-panel .controls-item {
+  margin-top: var(--controls-item-margin-y);
+  margin-bottom: var(--controls-item-margin-y);
+}
+
+#controls-panel .controls-item:first-child {
+  margin-top: 0;
+}
+
+#controls-panel .form-control {
+  background-color: white;
+  color: rgb(33, 37, 41);
+  border-color: rgb(88, 88, 88);
+}
+
+#controls-panel .form-control:focus {
+  background-color: white;
+  color: rgb(33, 37, 41);
+  border-color: steelblue;
+  box-shadow: none;
+}
+
+#controls-panel .form-control-color {
+  width: 2em;
+  height: var(--controls-color-input-height);
+  padding: 0.0rem 0.0rem;
+  border-radius: var(--form-control-color-radius);
+  border-color: white;
+
+}
+
+#controls-panel .form-check-input {
+  height: var(--controls-color-input-height);
+  width: 2.8rem;
+}
+
+#controls-panel .form-switch .form-check-input {
+  margin-top: 0;
+}
+
+#controls-panel .form-control-color::-webkit-color-swatch-wrapper {
+  border-radius: var(--form-control-color-radius);
+}
+
+#controls-panel .form-control-color::-webkit-color-swatch {
+  border-radius: var(--form-control-color-radius);
+}
+
+#controls-panel .form-control-color::-moz-color-swatch {
+  border-radius: var(--form-control-color-radius);
+}
+
+#viewer-panel {
+  flex: 2 1 0;
+}
+
+#source-error,
+#scale-error {
+  display: none;
+  color: rgb(250, 50, 50);
+}
+
+#controls-panel .scale-level-highlight {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.crop-merged-slider {
+  position: relative;
+  height: 24px;
+  touch-action: none;
+}
+
+.crop-track,
+.crop-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+}
+
+.crop-track {
+  background: lightsteelblue;
+  z-index: 0;
+}
+
+.crop-fill {
+  background: steelblue;
+  z-index: 1;
+}
+
+.crop-handle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  z-index: 2;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.crop-handle[id$="-min"] {
+  z-index: 3;
+}
+
+.crop-handle[id$="-max"] {
+  z-index: 4;
+}
+
+.crop-handle::-webkit-slider-runnable-track,
+.opacity-range::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 6px;
+    background: linear-gradient(
+    to right,
+    var(--opacity-fill) 0%,
+    var(--opacity-fill) calc(var(--value, 100) * 1%),
+    var(--opacity-track) calc(var(--value, 100) * 1%),
+    var(--opacity-track) 100%
+  );
+}
+
+.crop-handle::-moz-range-track,
+.opacity-range::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 6px;
+  background: var(--opacity-track);
+}
+
+.crop-handle::-webkit-slider-thumb,
+.opacity-range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid steelblue;
+  background: white;
+  pointer-events: auto;
+  cursor: grab;
+
+}
+
+.crop-handle::-moz-range-thumb,
+.opacity-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid steelblue;
+  background: white;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+#histogram-canvas {
+  --histogram-handle-color: steelblue;
+  --histogram-handle-width: 20;
+  --histogram-handle-width-hover: 32;
+  --histogram-handle-hover-speed: 0.2;
+  width: 100%;
+  display: block;
+}
+
+.opacity-range {
+  --opacity-track: lightsteelblue;
+  --opacity-fill: steelblue;
+}
+
+.opacity-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--opacity-fill);
+}
+
+.crop-handle:active::-webkit-slider-thumb,
+.opacity-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+
+.crop-handle:active::-moz-range-thumb,
+.opacity-range:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+

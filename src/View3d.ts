@@ -1,5 +1,6 @@
 import {
   AmbientLight,
+  Box3,
   Vector3,
   Object3D,
   SpotLight,
@@ -773,7 +774,20 @@ export class View3d {
     zmin: number,
     zmax: number
   ): void {
-    this.image?.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax);
+    this.image?.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax, false);
+    this.redraw();
+  }
+
+  updateCropRegion(
+    volume: Volume,
+    xmin: number,
+    xmax: number,
+    ymin: number,
+    ymax: number,
+    zmin: number,
+    zmax: number
+  ): void {
+    this.image?.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax, true);
     this.redraw();
   }
 

@@ -56,6 +56,14 @@ export interface State {
   ymax: number;
   zmax: number;
 
+  cropXmin: number;
+  cropYmin: number;
+  cropZmin: number;
+  cropXmax: number;
+  cropYmax: number;
+  cropZmax: number;
+
+
   samplingRate: number;
   primaryRay: number;
   secondaryRay: number;
@@ -74,6 +82,7 @@ export interface State {
   boundingBoxColor: [number, number, number];
 
   backgroundColor: [number, number, number];
+  foregroundColor: [number, number, number];
 
   flipX: -1 | 1;
   flipY: -1 | 1;
