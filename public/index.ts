@@ -1392,6 +1392,20 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   myState.loader = await createLoader(testdata);
 
   const loadSpec = new LoadSpec();
+  if (testdata.type === VolumeFileFormat.ZARR) {
+    const scaleParam = new URLSearchParams(window.location.search).get("scale")?.trim().toLowerCase();
+    if (scaleParam === "min") {
+      loadSpec.useExplicitLevel = true;
+      loadSpec.multiscaleLevel = Number.MAX_SAFE_INTEGER;
+    } else {
+      const level = Number(scaleParam);
+      if (scaleParam && Number.isInteger(level) && level >= 0) {
+        loadSpec.useExplicitLevel = true;
+        loadSpec.multiscaleLevel = level;
+      }
+    }
+  }
+
   myState.totalFrames = testdata.times;
   const loader = myState.loader[Math.max(myState.scene, myState.loader.length - 1)];
   await loadVolume(name, loadSpec, loader);
@@ -1668,12 +1682,32 @@ function rgb01ToHex(color: [number, number, number]): string {
 }
 
 function main() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const hiddenParam = urlParams.get("hidden")?.trim().toLowerCase();
+  const turntableParam = urlParams.get("turntable")?.trim().toLowerCase();
+  if (hiddenParam === "true") {
+    const controlsPanel = document.getElementById("controls-panel");
+    if (controlsPanel) {
+      controlsPanel.classList.add("hidden");
+    }
+  }
+
   const el = document.getElementById("viewer-panel");
   if (!el) {
     return;
   }
   view3D = new View3d({ parentElement: el });
   view3D.setBackgroundColor(myState.backgroundColor);
+
+  if (turntableParam === "true") {
+    const appLayout = document.querySelector(".flex-layout");
+    appLayout?.addEventListener("mouseenter", () => {
+      view3D.setAutoRotate(true);
+    });
+    appLayout?.addEventListener("mouseleave", () => {
+      view3D.setAutoRotate(false);
+    });
+  }
 
   const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
   if (boundingBoxColorInput) {
@@ -1855,6 +1889,7 @@ function main() {
     }
 
     try {
+      setScaleError();
       setSourceError();
       await loadTestData("url", { type, url: source });
     } catch (error) {
