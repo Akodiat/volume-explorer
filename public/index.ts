@@ -1173,8 +1173,8 @@ function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
 
 function onChannelDataArrived(v: Volume, channelIndex: number) {
   const currentVol = v; // myState.volume;
-  const LUT_MIN_PERCENTILE = 0.925;
-  const LUT_MAX_PERCENTILE = 0.99;
+  const LUT_MIN_PERCENTILE = 0.5;
+  const LUT_MAX_PERCENTILE = 0.983;
   const hist = v.getHistogram(channelIndex);
   const hmin = hist.findBinOfPercentile(LUT_MIN_PERCENTILE);
   const hmax = hist.findBinOfPercentile(LUT_MAX_PERCENTILE);
@@ -1394,7 +1394,7 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   const loadSpec = new LoadSpec();
   if (testdata.type === VolumeFileFormat.ZARR) {
     const scaleParam = new URLSearchParams(window.location.search).get("scale")?.trim().toLowerCase();
-    if (scaleParam === "min") {
+    if (scaleParam === "last") {
       loadSpec.useExplicitLevel = true;
       loadSpec.multiscaleLevel = Number.MAX_SAFE_INTEGER;
     } else {
@@ -1937,22 +1937,32 @@ function main() {
     }
   });
 
-  const xBtn = document.getElementById("X");
-  xBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("X");
-  });
-  const yBtn = document.getElementById("Y");
-  yBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("Y");
-  });
-  const zBtn = document.getElementById("Z");
-  zBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("Z");
-  });
-  const d3Btn = document.getElementById("3D");
-  d3Btn?.addEventListener("click", () => {
-    view3D.setCameraMode("3D");
-  });
+  type CameraMode = "X" | "Y" | "Z" | "3D";
+  const cameraModeButtons: Record<CameraMode, HTMLButtonElement | null> = {
+    X: document.getElementById("X") as HTMLButtonElement | null,
+    Y: document.getElementById("Y") as HTMLButtonElement | null,
+    Z: document.getElementById("Z") as HTMLButtonElement | null,
+    "3D": document.getElementById("3D") as HTMLButtonElement | null,
+  };
+
+  const setActiveCameraModeButton = (mode: CameraMode) => {
+    (Object.keys(cameraModeButtons) as CameraMode[]).forEach((cameraMode) => {
+      cameraModeButtons[cameraMode]?.classList.toggle("is-active", cameraMode === mode);
+    });
+  };
+
+  const bindCameraModeButton = (mode: CameraMode) => {
+    cameraModeButtons[mode]?.addEventListener("click", () => {
+      view3D.setCameraMode(mode);
+      setActiveCameraModeButton(mode);
+    });
+  };
+
+  bindCameraModeButton("X");
+  bindCameraModeButton("Y");
+  bindCameraModeButton("Z");
+  bindCameraModeButton("3D");
+  setActiveCameraModeButton("3D");
   const rotBtn = document.getElementById("rotBtn");
   rotBtn?.addEventListener("click", () => {
     myState.isTurntable = !myState.isTurntable;

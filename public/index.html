@@ -77,6 +77,15 @@
 
         <div class="controls-item">
           <div class="d-flex align-items-center justify-content-between mb-2">
+            <span>Slices view</span>
+            <div class="btn-group slice-view-buttons" role="group" aria-label="Slice and 3D view controls">
+              <button id="X" type="button" class="btn btn-outline-secondary btn-sm">X</button>
+              <button id="Y" type="button" class="btn btn-outline-secondary btn-sm">Y</button>
+              <button id="Z" type="button" class="btn btn-outline-secondary btn-sm">Z</button>
+              <button id="3D" type="button" class="btn btn-outline-secondary btn-sm is-active">3D</button>
+            </div>
+          </div>
+          <div class="d-flex align-items-center justify-content-between mb-2">
             <span>Cropping</span>
             <button id="crop-reset-button" type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
           </div>
@@ -156,10 +165,6 @@
             <input id="featmax" type="range" min="0" max="100" step="1" value="100" />
           </p>
           <p style="margin: 2px">
-            <button id="X">X</button>
-            <button id="Y">Y</button>
-            <button id="Z">Z</button>
-            <button id="3D">3D</button>
             <button id="rotBtn">Turntable</button>
             <button id="xfBtn">Align</button>
             <button id="resetCamBtn">ResetCam</button>

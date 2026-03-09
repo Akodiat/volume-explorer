@@ -214,6 +214,25 @@ body {
   background: var(--opacity-fill);
 }
 
+.slice-view-buttons .btn {
+  border-color: lightsteelblue;
+  color: white;
+  min-width: 2.5rem;
+}
+
+.slice-view-buttons .btn:hover,
+.slice-view-buttons .btn:focus {
+  border-color: steelblue;
+  color: white;
+  box-shadow: none;
+}
+
+.slice-view-buttons .btn.is-active {
+  background-color: steelblue;
+  border-color: steelblue;
+  color: white;
+}
+
 .crop-handle:active::-webkit-slider-thumb,
 .opacity-range:active::-webkit-slider-thumb {
   cursor: grabbing;
