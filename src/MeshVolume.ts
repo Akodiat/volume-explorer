@@ -227,6 +227,10 @@ export default class MeshVolume implements IDrawableObject {
     this.updateClipFromBounds();
   }
 
+  updateCropRegion(cropXmin: number, cropXmax: number, cropYmin: number, cropYmax: number, cropZmin: number, cropZmax: number): void {
+    // TODO implement cropping for the mesh
+  }
+
   updateClipFromBounds(): void {
     const xmin = this.bounds.bmin.x;
     const ymin = this.bounds.bmin.y;
