@@ -1173,8 +1173,13 @@ function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
 
 function onChannelDataArrived(v: Volume, channelIndex: number) {
   const currentVol = v; // myState.volume;
-
-  // optionally can set the LUT here (for example if this is first time loading)
+  const LUT_MIN_PERCENTILE = 0.925;
+  const LUT_MAX_PERCENTILE = 0.99;
+  const hist = v.getHistogram(channelIndex);
+  const hmin = hist.findBinOfPercentile(LUT_MIN_PERCENTILE);
+  const hmax = hist.findBinOfPercentile(LUT_MAX_PERCENTILE);
+  const lut = new Lut().createFromMinMax(hmin, hmax);
+  v.setLut(channelIndex, lut);
 
   view3D.onVolumeData(currentVol, [channelIndex]);
   view3D.setVolumeChannelEnabled(currentVol, channelIndex, myState.channelGui[channelIndex].enabled);
@@ -1188,15 +1193,8 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
   updateChannelUI(currentVol, channelIndex)
 
   if (channelIndex === 0) {
-    const hist = v.getHistogram(0) as any;
-    const bins = hist.bins ?? hist.histogram;
-    
-    if (bins && bins.length) {
-      const [minBin, maxBin] = hist.findAutoIJBins();
-      histogramSelection.minBin = Math.min(minBin, bins.length - 1);
-      histogramSelection.maxBin = Math.min(maxBin, bins.length - 1);
-      applyHistogramLutFromBins(0);
-    }
+    histogramSelection.minBin = hmin;
+    histogramSelection.maxBin = hmax;
   }
   drawHistogramFromVolume(v, channelIndex);
   updateOmeZarrScaleSelect(v);
