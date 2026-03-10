@@ -1,6 +1,6 @@
 {
   "name": "@qim3d/volume-explorer",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "bin": {
     "volume-explorer": "./bin/volume-explorer.js"
   },
@@ -43,10 +43,14 @@
     "execa": "^9.6.1",
     "geotiff": "^2.0.5",
     "serialize-error": "^11.0.3",
+    "serve": "^14.2.6",
     "three": "^0.171.0",
     "throttled-queue": "^2.1.4",
     "tweakpane": "^3.1.9",
-    "zarrita": "^0.5.1"
+    "zarrita": "^0.5.1",
+    "lil-gui": "^0.19.2",
+    "vite": "^6.0.6",
+    "vite-plugin-glsl": "^1.3.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",
