@@ -9,13 +9,21 @@ console.log("Launching QIM Volume Explorer...");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// project root (one level above /bin)
+// Package root (where package.json is)
 const root = path.resolve(__dirname, "..");
 
-const proc = spawn("npx", ["vite", "serve"], {
-  cwd: root,
-  stdio: "inherit",
-  shell: true
-});
+// Local vite binary
+const viteBin = path.join(root, "node_modules", ".bin", "vite");
+
+// Spawn vite serve in the package root
+const proc = spawn(
+  viteBin,
+  ["serve"], // same as "npm run start"
+  {
+    cwd: root,
+    stdio: "inherit",
+    shell: true
+  }
+);
 
 proc.on("close", (code) => process.exit(code));
