@@ -215,30 +215,88 @@ body {
 }
 
 .slice-view-buttons .btn {
-  border-color: lightsteelblue;
+  border-color: thistle;
   color: white;
   min-width: 2.5rem;
 }
 
 .slice-view-buttons .btn:hover,
 .slice-view-buttons .btn:focus {
-  border-color: steelblue;
+  border-color: thistle;
+  background-color: thistle;
   color: white;
   box-shadow: none;
 }
 
 .slice-view-buttons .btn.is-active {
-  background-color: steelblue;
-  border-color: steelblue;
+  background-color: plum;
+  border-color: plum;
   color: white;
 }
 
+.slice-view-current {
+  color: plum;
+  font-weight: 700;
+}
+
+.slice-selector-panel {
+  border: 1px solid thistle;
+  border-radius: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.slice-selector-bound {
+  min-width: 2.2rem;
+  text-align: center;
+  color: thistle;
+  font-weight: 600;
+}
+
+.slice-selector-slider {
+  --slice-track: thistle;
+  --slice-fill: plum;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.slice-selector-slider::-webkit-slider-runnable-track {
+  background: var(--slice-track);
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.slice-selector-slider::-moz-range-track {
+  background: var(--slice-track);
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.slice-selector-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid plum;
+  background: white;
+  cursor: grab;
+  margin-top: -3px;
+}
+
+.slice-selector-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid plum;
+  background: white;
+  cursor: grab;
+}
+
+.slice-selector-slider:active::-webkit-slider-thumb,
 .crop-handle:active::-webkit-slider-thumb,
 .opacity-range:active::-webkit-slider-thumb {
   cursor: grabbing;
 }
 
-
+.slice-selector-slider:active::-moz-range-thumb,
 .crop-handle:active::-moz-range-thumb,
 .opacity-range:active::-moz-range-thumb {
   cursor: grabbing;

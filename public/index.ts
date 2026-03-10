@@ -149,8 +149,18 @@ const histogramSelection = {
 };
 
 type CropAxis = "x" | "y" | "z";
+type CameraMode = "X" | "Y" | "Z" | "3D";
 
 type CropStateKey = "cropXmin" | "cropXmax" | "cropYmin" | "cropYmax" | "cropZmin" | "cropZmax";
+
+let activeSliceAxis: CropAxis | null = null;
+const sliceIndexByAxis: Record<CropAxis, number> = {
+  x: 0,
+  y: 0,
+  z: 0,
+};
+
+const CROP_AXES: CropAxis[] = ["x", "y", "z"];
 
 const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey }> = {
   x: { min: "cropXmin", max: "cropXmax" },
@@ -158,19 +168,167 @@ const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey
   z: { min: "cropZmin", max: "cropZmax" },
 };
 
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
+function getAxisVoxelCount(axis: CropAxis): number {
+  const axisValue = myState.volume.imageInfo?.volumeSize?.[axis];
+  const value = Number(axisValue ?? 1);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+}
+
+function getAxisMaxSliceIndex(axis: CropAxis): number {
+  return Math.max(0, getAxisVoxelCount(axis) - 1);
+}
+
+function clampSliceIndex(axis: CropAxis, sliceIndex: number): number {
+  const maxSliceIndex = getAxisMaxSliceIndex(axis);
+  return Math.min(maxSliceIndex, Math.max(0, Math.round(sliceIndex)));
+}
+
+function getSliceCropBounds(axis: CropAxis, sliceIndex: number): { min: number; max: number } {
+  const voxelCount = getAxisVoxelCount(axis);
+  const maxIndex = getAxisMaxSliceIndex(axis);
+  const clampedIndex = clampSliceIndex(axis, sliceIndex);
+  sliceIndexByAxis[axis] = clampedIndex;
+
+  const normalized = maxIndex > 0 ? clampedIndex / maxIndex : 0;
+  const sliceThickness = Math.max(1 / voxelCount, 0.000001);
+  const halfThickness = sliceThickness * 0.5;
+
+  let min = normalized - halfThickness;
+  let max = normalized + halfThickness;
+
+  if (min < 0) {
+    max = Math.min(1, max - min);
+    min = 0;
+  }
+  if (max > 1) {
+    min = Math.max(0, min - (max - 1));
+    max = 1;
+  }
+
+  return { min, max };
+}
+
+function getEffectiveAxisCropBounds(axis: CropAxis): { min: number; max: number } {
+  if (activeSliceAxis === axis) {
+    return getSliceCropBounds(axis, sliceIndexByAxis[axis]);
+  }
+
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  return {
+    min: myState[minKey] as number,
+    max: myState[maxKey] as number,
+  };
+}
+
+function updateSliceViewCurrentLabel() {
+  const currentLabel = document.getElementById("slice-view-current") as HTMLSpanElement | null;
+  if (!currentLabel) {
+    return;
+  }
+
+  if (!activeSliceAxis) {
+    currentLabel.textContent = "";
+    return;
+  }
+
+  const axisUpper = activeSliceAxis.toUpperCase();
+  currentLabel.textContent = `${axisUpper}:${sliceIndexByAxis[activeSliceAxis]}`;
+}
+
+function updateCropRowVisibility() {
+  for (const axis of CROP_AXES) {
+    const row = document.getElementById(`crop-row-${axis}`);
+    row?.classList.toggle("hidden", activeSliceAxis === axis);
+  }
+}
+
+function updateSliceSelectorUI() {
+  const panel = document.getElementById("slice-selector-panel") as HTMLElement | null;
+  const axisLabel = document.getElementById("slice-selector-axis") as HTMLLabelElement | null;
+  const minLabel = document.getElementById("slice-selector-min") as HTMLSpanElement | null;
+  const maxLabel = document.getElementById("slice-selector-max") as HTMLSpanElement | null;
+  const slider = document.getElementById("slice-selector-slider") as HTMLInputElement | null;
+
+  if (!panel || !axisLabel || !minLabel || !maxLabel || !slider) {
+    return;
+  }
+
+  if (!activeSliceAxis) {
+    panel.classList.add("hidden");
+    updateSliceViewCurrentLabel();
+    updateCropRowVisibility();
+    return;
+  }
+
+  panel.classList.remove("hidden");
+
+  const axisUpper = activeSliceAxis.toUpperCase();
+  const maxIndex = getAxisMaxSliceIndex(activeSliceAxis);
+  const nextValue = clampSliceIndex(activeSliceAxis, sliceIndexByAxis[activeSliceAxis]);
+  sliceIndexByAxis[activeSliceAxis] = nextValue;
+
+  axisLabel.textContent = axisUpper;
+  minLabel.textContent = "0";
+  maxLabel.textContent = `${maxIndex}`;
+  slider.min = "0";
+  slider.max = `${maxIndex}`;
+  slider.value = `${nextValue}`;
+
+  updateSliceViewCurrentLabel();
+  updateCropRowVisibility();
+}
+
+function setActiveSliceMode(mode: CameraMode) {
+  activeSliceAxis = mode === "3D" ? null : (mode.toLowerCase() as CropAxis);
+  updateSliceSelectorUI();
+  applyCropRegionFromState();
+}
+
+function setupSliceSelectorControls() {
+  const slider = document.getElementById("slice-selector-slider") as HTMLInputElement | null;
+  slider?.addEventListener("input", () => {
+    if (!activeSliceAxis) {
+      return;
+    }
+
+    const nextSliceIndex = clampSliceIndex(activeSliceAxis, slider.valueAsNumber);
+    sliceIndexByAxis[activeSliceAxis] = nextSliceIndex;
+
+    if (activeSliceAxis === "z") {
+      goToZSlice(nextSliceIndex);
+    }
+
+    updateSliceSelectorUI();
+    applyCropRegionFromState();
+  });
+
+  updateSliceSelectorUI();
+}
+
+function resetSliceIndicesForVolume(volume: Volume) {
+  for (const axis of CROP_AXES) {
+    const axisCount = Math.max(1, Math.floor(volume.imageInfo.volumeSize[axis]));
+    const maxIndex = axisCount - 1;
+    sliceIndexByAxis[axis] = Math.floor(maxIndex * 0.5);
+  }
+
+  updateSliceSelectorUI();
 }
 
 function applyCropRegionFromState() {
+  const xBounds = getEffectiveAxisCropBounds("x");
+  const yBounds = getEffectiveAxisCropBounds("y");
+  const zBounds = getEffectiveAxisCropBounds("z");
+
   view3D.updateCropRegion(
     myState.volume,
-    myState.cropXmin,
-    myState.cropXmax,
-    myState.cropYmin,
-    myState.cropYmax,
-    myState.cropZmin,
-    myState.cropZmax
+    xBounds.min,
+    xBounds.max,
+    yBounds.min,
+    yBounds.max,
+    zBounds.min,
+    zBounds.max
   );
 }
 
@@ -1235,6 +1393,7 @@ function onVolumeCreated(name: string, volume: Volume) {
   updateTimeUI();
   updateScenesUI();
   updateZSliceUI(myState.volume);
+  resetSliceIndicesForVolume(myState.volume);
   syncCropInputsFromState();
   applyCropRegionFromState();
   showChannelUI(myState.volume);
@@ -1937,7 +2096,6 @@ function main() {
     }
   });
 
-  type CameraMode = "X" | "Y" | "Z" | "3D";
   const cameraModeButtons: Record<CameraMode, HTMLButtonElement | null> = {
     X: document.getElementById("X") as HTMLButtonElement | null,
     Y: document.getElementById("Y") as HTMLButtonElement | null,
@@ -1955,6 +2113,7 @@ function main() {
     cameraModeButtons[mode]?.addEventListener("click", () => {
       view3D.setCameraMode(mode);
       setActiveCameraModeButton(mode);
+      setActiveSliceMode(mode);
     });
   };
 
@@ -1963,6 +2122,7 @@ function main() {
   bindCameraModeButton("Z");
   bindCameraModeButton("3D");
   setActiveCameraModeButton("3D");
+  setActiveSliceMode("3D");
   const rotBtn = document.getElementById("rotBtn");
   rotBtn?.addEventListener("click", () => {
     myState.isTurntable = !myState.isTurntable;
@@ -2360,6 +2520,7 @@ function main() {
 
   setupColorizeControls();
   setupCropControls();
+  setupSliceSelectorControls();
   setupGui(el);
 
   void loadFromCurrentSource(true);
