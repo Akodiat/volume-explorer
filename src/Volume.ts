@@ -11,6 +11,7 @@ import { type ImageInfo, CImageInfo, defaultImageInfo } from "./ImageInfo.js";
 import type { VolumeDims } from "./VolumeDims.js";
 
 interface VolumeDataObserver {
+  onVolumeLoadStart: (vol: Volume) => void;
   onVolumeData: (vol: Volume, batch: number[]) => void;
   onVolumeChannelAdded: (vol: Volume, idx: number) => void;
   onVolumeLoadError: (vol: Volume, error: unknown) => void;
@@ -212,6 +213,7 @@ export default class Volume {
    */
   private async loadNewData(onChannelLoaded?: PerChannelCallback): Promise<void> {
     this.setUnloaded();
+    this.volumeDataObservers.forEach((observer) => observer.onVolumeLoadStart(this));
     this.loadSpec = {
       ...this.loadSpecRequired,
       subregion: this.loadSpecRequired.subregion.clone(),

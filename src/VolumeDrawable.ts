@@ -795,7 +795,15 @@ export default class VolumeDrawable {
   }
 
   // values are in 0..1 range
-  updateClipRegion(xmin: number, xmax: number, ymin: number, ymax: number, zmin: number, zmax: number, toCrop : boolean): void {
+  updateClipRegion(
+    xmin: number,
+    xmax: number,
+    ymin: number,
+    ymax: number,
+    zmin: number,
+    zmax: number,
+    toCrop: boolean
+  ): Promise<void> {
     this.settings.bounds.bmin = new Vector3(xmin - 0.5, ymin - 0.5, zmin - 0.5);
     this.settings.bounds.bmax = new Vector3(xmax - 0.5, ymax - 0.5, zmax - 0.5);
     for (const object of this.childObjects) {
@@ -805,8 +813,9 @@ export default class VolumeDrawable {
     // console.log("Requested atlas edge:", this.volume.loadSpecRequired.maxAtlasEdge);
     // console.log("Subregion:", xmin, xmax, ymin, ymax, zmin, zmax);
 
-    if (toCrop == true) {
-      this.volume.updateRequiredData({
+    let loadPromise = Promise.resolve();
+    if (toCrop === true) {
+      loadPromise = this.volume.updateRequiredData({
         subregion: new Box3(
           new Vector3(xmin, ymin, zmin),
           new Vector3(xmax, ymax, zmax)
@@ -816,6 +825,7 @@ export default class VolumeDrawable {
 
     this.volumeRendering.updateSettings(this.settings, SettingsFlags.ROI);
     this.pickRendering?.updateSettings(this.settings, SettingsFlags.ROI);
+    return loadPromise;
   }
 
   updateLights(state: Light[]): void {

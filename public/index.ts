@@ -48,6 +48,23 @@ const TEST_DATA: Record<string, TestDataSpec> = {
 };
 
 let view3D: View3d;
+let isVolumeLoading = false;
+
+function updateScaleLoadingIndicator() {
+  const loadingEl = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
+  if (!loadingEl) {
+    return;
+  }
+
+  const isLoading = isVolumeLoading;
+  loadingEl.classList.toggle("is-visible", isLoading);
+  loadingEl.setAttribute("aria-hidden", isLoading ? "false" : "true");
+}
+
+function setVolumeLoading(isLoading: boolean) {
+  isVolumeLoading = isLoading;
+  updateScaleLoadingIndicator();
+}
 
 const loaderContext = new VolumeLoaderContext(CACHE_MAX_SIZE, CONCURRENCY_LIMIT, PREFETCH_CONCURRENCY_LIMIT);
 
@@ -163,7 +180,7 @@ function clamp01(value: number): number {
 }
 
 function applyCropRegionFromState() {
-  view3D.updateCropRegion(
+  void view3D.updateCropRegion(
     myState.volume,
     myState.cropXmin,
     myState.cropXmax,
@@ -1189,6 +1206,7 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
 
   if (currentVol.isLoaded()) {
     console.log("currentVol with name " + currentVol.name + " is loaded");
+    setVolumeLoading(false);
   }
   updateChannelUI(currentVol, channelIndex)
 
@@ -1255,7 +1273,7 @@ function playTimeSeries(onNewFrameCallback: () => void) {
     const nextFrame = (myState.currentFrame + 1) % getNumberOfTimesteps();
 
     // TODO would be real nice if this were an `await`-able promise instead...
-    view3D.setTime(myState.volume, nextFrame, (vol) => {
+    void view3D.setTime(myState.volume, nextFrame, (vol) => {
       if (vol.isLoaded()) {
         myState.currentFrame = nextFrame;
         onNewFrameCallback();
@@ -1283,7 +1301,7 @@ function goToFrame(targetFrame: number): boolean {
     return false;
   }
 
-  view3D.setTime(myState.volume, targetFrame);
+  void view3D.setTime(myState.volume, targetFrame);
   myState.currentFrame = targetFrame;
   return true;
 }
@@ -1697,6 +1715,12 @@ function main() {
     return;
   }
   view3D = new View3d({ parentElement: el });
+  view3D.setLoadStartHandler(() => {
+    setVolumeLoading(true);
+  });
+  view3D.setLoadErrorHandler(() => {
+    setVolumeLoading(false);
+  });
   view3D.setBackgroundColor(myState.backgroundColor);
 
   if (turntableParam === "true") {
@@ -1896,6 +1920,7 @@ function main() {
       console.error(error);
       setSourceError(getSourceLoadErrorMessage(source, error));
       clearView();
+      setVolumeLoading(false);
     }
   };
 
@@ -2124,7 +2149,7 @@ function main() {
   sceneInput?.addEventListener("change", () => {
     if (myState.loader.length > 1 && myState.scene !== sceneInput.valueAsNumber) {
       myState.scene = sceneInput.valueAsNumber;
-      loadVolume(myState.currentImageName, new LoadSpec(), myState.loader[myState.scene]);
+      void loadVolume(myState.currentImageName, new LoadSpec(), myState.loader[myState.scene]);
     }
   });
 
