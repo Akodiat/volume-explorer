@@ -205,6 +205,48 @@ function syncCropFill(axis: CropAxis) {
   fill.style.right = `${(1 - maxValue) * 100}%`;
 }
 
+function getCropAxisSize(axis: CropAxis): number {
+  const volumeSize = myState.volume.imageInfo.volumeSize;
+  switch (axis) {
+    case "x":
+      return Math.max(1, Math.round(volumeSize.x));
+    case "y":
+      return Math.max(1, Math.round(volumeSize.y));
+    case "z":
+      return Math.max(1, Math.round(volumeSize.z));
+  }
+}
+
+function getCropAxisBounds(axis: CropAxis): { left: number; right: number } {
+  const axisSize = getCropAxisSize(axis);
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const minValue = myState[minKey] as number;
+  const maxValue = myState[maxKey] as number;
+
+  const left = Math.max(0, Math.min(axisSize, Math.floor(minValue * axisSize)));
+  const right = Math.max(left, Math.min(axisSize, Math.ceil(maxValue * axisSize)));
+  return { left, right };
+}
+
+function syncCropDimensionLabels(axis: CropAxis) {
+  const leftValueEl = document.getElementById(`crop-${axis}-left`) as HTMLElement | null;
+  const rightValueEl = document.getElementById(`crop-${axis}-right`) as HTMLElement | null;
+  if (!leftValueEl || !rightValueEl) {
+    return;
+  }
+
+  const { left, right } = getCropAxisBounds(axis);
+
+  leftValueEl.textContent = `${left}`;
+  rightValueEl.textContent = `${right}`;
+}
+
+function syncCropAxisUi(axis: CropAxis) {
+  syncCropFill(axis);
+  syncCropDimensionLabels(axis);
+}
+
 function syncCropInputsFromState() {
   const axes: CropAxis[] = ["x", "y", "z"];
   for (const axis of axes) {
@@ -218,13 +260,12 @@ function syncCropInputsFromState() {
     const maxKey = cropAxisStateKeys[axis].max;
     minInput.value = `${myState[minKey]}`;
     maxInput.value = `${myState[maxKey]}`;
-    syncCropFill(axis);
+    syncCropAxisUi(axis);
   }
 }
 
 function setupCropControls() {
   const axes: CropAxis[] = ["x", "y", "z"];
-
   for (const axis of axes) {
     const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
     const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
@@ -240,7 +281,7 @@ function setupCropControls() {
       const nextMin = Math.min(clamp01(minInput.valueAsNumber), myState[maxKey] as number);
       myState[minKey] = nextMin;
       minInput.value = `${nextMin}`;
-      syncCropFill(axis);
+      syncCropAxisUi(axis);
       applyCropRegionFromState();
     };
 
@@ -248,7 +289,7 @@ function setupCropControls() {
       const nextMax = Math.max(clamp01(maxInput.valueAsNumber), myState[minKey] as number);
       myState[maxKey] = nextMax;
       maxInput.value = `${nextMax}`;
-      syncCropFill(axis);
+      syncCropAxisUi(axis);
       applyCropRegionFromState();
     };
 
@@ -279,7 +320,7 @@ function setupCropControls() {
           maxInput.value = `${nextMax}`;
         }
 
-        syncCropFill(axis);
+        syncCropAxisUi(axis);
         applyCropRegionFromState();
       };
 
@@ -330,6 +371,23 @@ function setupCropControls() {
   }
 
   const resetCropBtn = document.getElementById("crop-reset-button") as HTMLButtonElement | null;
+  const copyCropBtn = document.getElementById("crop-copy-indeces-button") as HTMLButtonElement | null;
+
+  copyCropBtn?.addEventListener("click", async () => {
+    const x = getCropAxisBounds("x");
+    const y = getCropAxisBounds("y");
+    const z = getCropAxisBounds("z");
+    const indexing = `[${z.left}:${z.right}, ${y.left}:${y.right}, ${x.left}:${x.right}]`;
+    navigator.clipboard.writeText(indexing);
+
+
+    const originalLabel = copyCropBtn.textContent || "Copy indeces";
+    copyCropBtn.textContent = "Copied";
+    window.setTimeout(() => {
+      copyCropBtn.textContent = originalLabel;
+    }, 1000);
+  });
+
   resetCropBtn?.addEventListener("click", () => {
     myState.cropXmin = 0;
     myState.cropXmax = 1;
