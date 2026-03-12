@@ -118,7 +118,7 @@ export default class PickVolume implements VolumeRenderImpl {
     this.setUniform("ATLAS_DIMS", atlasTileDims);
 
     this.setUniform("textureRes", atlasSize);
-    this.setUniform("SLICES", this.volume.imageInfo.volumeSize.z);
+    this.setUniform("SLICES", subregionSize.z);
 
     // (re)create channel data
   }

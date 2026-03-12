@@ -171,6 +171,9 @@ export abstract class ThreadableVolumeLoader implements IVolumeLoader {
         volume.updateDimensions();
       }
       volume.loadSpec = { ...loadSpec, ...spec };
+      if (imageInfo?.multiscaleLevel !== undefined) {
+        volume.loadSpec.multiscaleLevel = imageInfo.multiscaleLevel;
+      }
     };
 
     const onChannelData: RawChannelDataCallback = (channelIndices, dtypes, dataArrays, ranges, atlasDims) => {

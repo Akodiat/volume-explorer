@@ -105,7 +105,7 @@ export default class RayMarchedAtlasVolume implements VolumeRenderImpl {
     this.setUniform("ATLAS_DIMS", atlasTileDims);
 
     this.setUniform("textureRes", atlasSize);
-    this.setUniform("SLICES", this.volume.imageInfo.volumeSize.z);
+    this.setUniform("SLICES", subregionSize.z);
 
     // (re)create channel data
     if (!this.channelData || this.channelData.width !== atlasSize.x || this.channelData.height !== atlasSize.y) {
