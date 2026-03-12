@@ -315,7 +315,7 @@ class OMEZarrLoader extends ThreadableVolumeLoader {
     const hasT = t > -1;
     const hasZ = z > -1;
 
-    const levelToLoad = pickLevelToLoad(loadSpec, this.getLevelShapesZYX());
+    const { level: levelToLoad } = pickLevelToLoad(loadSpec, this.getLevelShapesZYX());
     const shapeLv = source0.scaleLevels[levelToLoad].shape;
 
     const [spatialUnit, timeUnit] = this.getUnitSymbols();
@@ -494,7 +494,7 @@ class OMEZarrLoader extends ThreadableVolumeLoader {
     const subregion = composeSubregion(loadSpec.subregion, maxExtent);
 
     // Pick the level to load based on the subregion size
-    const multiscaleLevel = pickLevelToLoad({ ...loadSpec, subregion }, this.getLevelShapesZYX());
+    const { level: multiscaleLevel } = pickLevelToLoad({ ...loadSpec, subregion }, this.getLevelShapesZYX());
     const array0Shape = this.sources[0].scaleLevels[multiscaleLevel].shape;
 
     // Convert subregion to volume voxels

@@ -1718,9 +1718,6 @@ function main() {
   view3D.setLoadStartHandler(() => {
     setVolumeLoading(true);
   });
-  view3D.setLoadErrorHandler(() => {
-    setVolumeLoading(false);
-  });
   view3D.setBackgroundColor(myState.backgroundColor);
 
   if (turntableParam === "true") {
@@ -1839,6 +1836,17 @@ function main() {
           } catch {
           }
         }
+      }
+    }
+  });
+
+
+  view3D.setLoadErrorHandler((_volume, error) => {
+    setVolumeLoading(false);
+    if (error instanceof Error && error.message === SCALE_TOO_LARGE_MESSAGE) {
+      setScaleError(SCALE_TOO_LARGE_MESSAGE);
+      if (omeZarrScaleSelect) {
+        omeZarrScaleSelect.value = "auto";
       }
     }
   });
