@@ -229,22 +229,40 @@ function getCropAxisBounds(axis: CropAxis): { left: number; right: number } {
   return { left, right };
 }
 
-function syncCropDimensionLabels(axis: CropAxis) {
-  const leftValueEl = document.getElementById(`crop-${axis}-left`) as HTMLElement | null;
-  const rightValueEl = document.getElementById(`crop-${axis}-right`) as HTMLElement | null;
-  if (!leftValueEl || !rightValueEl) {
+function syncCropDimensionInputs(axis: CropAxis) {
+  const leftInput = document.getElementById(`crop-${axis}-left`) as HTMLInputElement | null;
+  const rightInput = document.getElementById(`crop-${axis}-right`) as HTMLInputElement | null;
+  if (!leftInput || !rightInput) {
     return;
   }
 
+  const axisSize = getCropAxisSize(axis);
   const { left, right } = getCropAxisBounds(axis);
 
-  leftValueEl.textContent = `${left}`;
-  rightValueEl.textContent = `${right}`;
+  leftInput.min = "0";
+  rightInput.min = "0";
+  leftInput.max = `${axisSize}`;
+  rightInput.max = `${axisSize}`;
+  leftInput.value = `${left}`;
+  rightInput.value = `${right}`;
 }
 
 function syncCropAxisUi(axis: CropAxis) {
   syncCropFill(axis);
-  syncCropDimensionLabels(axis);
+  syncCropDimensionInputs(axis);
+}
+
+function setCropAxisBounds(axis: CropAxis, left: number, right: number) {
+  const axisSize = getCropAxisSize(axis);
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const safeLeft = Number.isFinite(left) ? left : 0;
+  const safeRight = Number.isFinite(right) ? right : axisSize;
+  const nextLeft = Math.max(0, Math.min(axisSize, Math.round(safeLeft)));
+  const nextRight = Math.max(nextLeft, Math.min(axisSize, Math.round(safeRight)));
+
+  myState[minKey] = axisSize > 0 ? nextLeft / axisSize : 0;
+  myState[maxKey] = axisSize > 0 ? nextRight / axisSize : 1;
 }
 
 function syncCropInputsFromState() {
@@ -269,8 +287,10 @@ function setupCropControls() {
   for (const axis of axes) {
     const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
     const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+    const leftInput = document.getElementById(`crop-${axis}-left`) as HTMLInputElement | null;
+    const rightInput = document.getElementById(`crop-${axis}-right`) as HTMLInputElement | null;
 
-    if (!minInput || !maxInput) {
+    if (!minInput || !maxInput || !leftInput || !rightInput) {
       continue;
     }
 
@@ -295,6 +315,47 @@ function setupCropControls() {
 
     minInput.addEventListener("input", onMinInput);
     maxInput.addEventListener("input", onMaxInput);
+
+    const onLeftChange = () => {
+      const { right } = getCropAxisBounds(axis);
+      setCropAxisBounds(axis, leftInput.valueAsNumber, right);
+      minInput.value = `${myState[minKey]}`;
+      maxInput.value = `${myState[maxKey]}`;
+      syncCropAxisUi(axis);
+      applyCropRegionFromState();
+    };
+
+    const onRightChange = () => {
+      const { left } = getCropAxisBounds(axis);
+      setCropAxisBounds(axis, left, rightInput.valueAsNumber);
+      minInput.value = `${myState[minKey]}`;
+      maxInput.value = `${myState[maxKey]}`;
+      syncCropAxisUi(axis);
+      applyCropRegionFromState();
+    };
+
+    const selectAll = (event: Event) => {
+      const target = event.currentTarget as HTMLInputElement;
+      target.select();
+    };
+
+    const commitOnEnter = (event: KeyboardEvent, handler: () => void) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      handler();
+      (event.currentTarget as HTMLInputElement).blur();
+    };
+
+    leftInput.addEventListener("focus", selectAll);
+    rightInput.addEventListener("focus", selectAll);
+    leftInput.addEventListener("click", selectAll);
+    rightInput.addEventListener("click", selectAll);
+
+    // Index input commits are Enter-only to avoid accidental updates while typing.
+    leftInput.addEventListener("keydown", (event) => commitOnEnter(event, onLeftChange));
+    rightInput.addEventListener("keydown", (event) => commitOnEnter(event, onRightChange));
 
     const mergedSlider = minInput.closest(".crop-merged-slider") as HTMLElement | null;
     if (mergedSlider) {
@@ -918,12 +979,29 @@ function updateZSliceUI(volume: Volume) {
   const zSlider = document.getElementById("zSlider") as HTMLInputElement;
   const zInput = document.getElementById("zValue") as HTMLInputElement;
 
-  const totalZSlices = volume.imageInfo.volumeSize.z;
-  zSlider.max = `${totalZSlices - 1}`;
-  zInput.max = `${totalZSlices - 1}`;
+  const oldMax = Number(zSlider.max);
+  const oldValue = Number(zSlider.value);
 
-  zInput.value = `${Math.floor(totalZSlices / 2)}`;
-  zSlider.value = `${Math.floor(totalZSlices / 2)}`;
+  const totalZSlices = volume.imageInfo.volumeSize.z;
+  const newMax = Math.max(0, totalZSlices - 1);
+
+  zSlider.max = `${newMax}`;
+  zInput.max = `${newMax}`;
+
+  const hasValidPreviousSlice = Number.isFinite(oldValue) && Number.isFinite(oldMax) && oldMax >= 0;
+
+  let nextValue = Math.floor(totalZSlices / 2);
+  if (hasValidPreviousSlice) {
+    const normalized = oldMax > 0 && Number.isFinite(oldValue) ? oldValue / oldMax : 0;
+    nextValue = Math.round(normalized * newMax);
+  }
+  nextValue = Math.max(0, Math.min(newMax, nextValue));
+
+  zInput.value = `${nextValue}`;
+  zSlider.value = `${nextValue}`;
+
+  // Keep renderer state in sync with remapped or clamped UI value.
+  goToZSlice(nextValue);
 }
 
 function showChannelUI(volume: Volume) {
@@ -1273,6 +1351,11 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
     histogramSelection.maxBin = hmax;
   }
   drawHistogramFromVolume(v, channelIndex);
+
+  // Scale-level changes update dimensions asynchronously; refresh crop and slice controls to match new bounds.
+  syncCropInputsFromState();
+  updateZSliceUI(v);
+
   updateOmeZarrScaleSelect(v);
   view3D.redraw();
 }

@@ -133,9 +133,28 @@ body {
 }
 
 .crop-dimension-value {
-  min-width: 2.6rem;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+#controls-panel .crop-dimension-value.form-control {
+  padding: 0.05rem 0.2rem;
+}
+
+.crop-dimension-value::-webkit-outer-spin-button,
+.crop-dimension-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.crop-dimension-value[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
 .crop-track,
