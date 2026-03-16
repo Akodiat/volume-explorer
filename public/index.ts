@@ -48,6 +48,23 @@ const TEST_DATA: Record<string, TestDataSpec> = {
 };
 
 let view3D: View3d;
+let isVolumeLoading = false;
+
+function updateScaleLoadingIndicator() {
+  const loadingEl = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
+  if (!loadingEl) {
+    return;
+  }
+
+  const isLoading = isVolumeLoading;
+  loadingEl.classList.toggle("is-visible", isLoading);
+  loadingEl.setAttribute("aria-hidden", isLoading ? "false" : "true");
+}
+
+function setVolumeLoading(isLoading: boolean) {
+  isVolumeLoading = isLoading;
+  updateScaleLoadingIndicator();
+}
 
 const loaderContext = new VolumeLoaderContext(CACHE_MAX_SIZE, CONCURRENCY_LIMIT, PREFETCH_CONCURRENCY_LIMIT);
 
@@ -163,7 +180,7 @@ function clamp01(value: number): number {
 }
 
 function applyCropRegionFromState() {
-  view3D.updateCropRegion(
+  void view3D.updateCropRegion(
     myState.volume,
     myState.cropXmin,
     myState.cropXmax,
@@ -188,6 +205,66 @@ function syncCropFill(axis: CropAxis) {
   fill.style.right = `${(1 - maxValue) * 100}%`;
 }
 
+function getCropAxisSize(axis: CropAxis): number {
+  const volumeSize = myState.volume.imageInfo.volumeSize;
+  switch (axis) {
+    case "x":
+      return Math.max(1, Math.round(volumeSize.x));
+    case "y":
+      return Math.max(1, Math.round(volumeSize.y));
+    case "z":
+      return Math.max(1, Math.round(volumeSize.z));
+  }
+}
+
+function getCropAxisBounds(axis: CropAxis): { left: number; right: number } {
+  const axisSize = getCropAxisSize(axis);
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const minValue = myState[minKey] as number;
+  const maxValue = myState[maxKey] as number;
+
+  const left = Math.max(0, Math.min(axisSize, Math.floor(minValue * axisSize)));
+  const right = Math.max(left, Math.min(axisSize, Math.ceil(maxValue * axisSize)));
+  return { left, right };
+}
+
+function syncCropDimensionInputs(axis: CropAxis) {
+  const leftInput = document.getElementById(`crop-${axis}-left`) as HTMLInputElement | null;
+  const rightInput = document.getElementById(`crop-${axis}-right`) as HTMLInputElement | null;
+  if (!leftInput || !rightInput) {
+    return;
+  }
+
+  const axisSize = getCropAxisSize(axis);
+  const { left, right } = getCropAxisBounds(axis);
+
+  leftInput.min = "0";
+  rightInput.min = "0";
+  leftInput.max = `${axisSize}`;
+  rightInput.max = `${axisSize}`;
+  leftInput.value = `${left}`;
+  rightInput.value = `${right}`;
+}
+
+function syncCropAxisUi(axis: CropAxis) {
+  syncCropFill(axis);
+  syncCropDimensionInputs(axis);
+}
+
+function setCropAxisBounds(axis: CropAxis, left: number, right: number) {
+  const axisSize = getCropAxisSize(axis);
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  const safeLeft = Number.isFinite(left) ? left : 0;
+  const safeRight = Number.isFinite(right) ? right : axisSize;
+  const nextLeft = Math.max(0, Math.min(axisSize, Math.round(safeLeft)));
+  const nextRight = Math.max(nextLeft, Math.min(axisSize, Math.round(safeRight)));
+
+  myState[minKey] = axisSize > 0 ? nextLeft / axisSize : 0;
+  myState[maxKey] = axisSize > 0 ? nextRight / axisSize : 1;
+}
+
 function syncCropInputsFromState() {
   const axes: CropAxis[] = ["x", "y", "z"];
   for (const axis of axes) {
@@ -201,18 +278,19 @@ function syncCropInputsFromState() {
     const maxKey = cropAxisStateKeys[axis].max;
     minInput.value = `${myState[minKey]}`;
     maxInput.value = `${myState[maxKey]}`;
-    syncCropFill(axis);
+    syncCropAxisUi(axis);
   }
 }
 
 function setupCropControls() {
   const axes: CropAxis[] = ["x", "y", "z"];
-
   for (const axis of axes) {
     const minInput = document.getElementById(`crop-${axis}-min`) as HTMLInputElement | null;
     const maxInput = document.getElementById(`crop-${axis}-max`) as HTMLInputElement | null;
+    const leftInput = document.getElementById(`crop-${axis}-left`) as HTMLInputElement | null;
+    const rightInput = document.getElementById(`crop-${axis}-right`) as HTMLInputElement | null;
 
-    if (!minInput || !maxInput) {
+    if (!minInput || !maxInput || !leftInput || !rightInput) {
       continue;
     }
 
@@ -223,7 +301,7 @@ function setupCropControls() {
       const nextMin = Math.min(clamp01(minInput.valueAsNumber), myState[maxKey] as number);
       myState[minKey] = nextMin;
       minInput.value = `${nextMin}`;
-      syncCropFill(axis);
+      syncCropAxisUi(axis);
       applyCropRegionFromState();
     };
 
@@ -231,12 +309,53 @@ function setupCropControls() {
       const nextMax = Math.max(clamp01(maxInput.valueAsNumber), myState[minKey] as number);
       myState[maxKey] = nextMax;
       maxInput.value = `${nextMax}`;
-      syncCropFill(axis);
+      syncCropAxisUi(axis);
       applyCropRegionFromState();
     };
 
     minInput.addEventListener("input", onMinInput);
     maxInput.addEventListener("input", onMaxInput);
+
+    const onLeftChange = () => {
+      const { right } = getCropAxisBounds(axis);
+      setCropAxisBounds(axis, leftInput.valueAsNumber, right);
+      minInput.value = `${myState[minKey]}`;
+      maxInput.value = `${myState[maxKey]}`;
+      syncCropAxisUi(axis);
+      applyCropRegionFromState();
+    };
+
+    const onRightChange = () => {
+      const { left } = getCropAxisBounds(axis);
+      setCropAxisBounds(axis, left, rightInput.valueAsNumber);
+      minInput.value = `${myState[minKey]}`;
+      maxInput.value = `${myState[maxKey]}`;
+      syncCropAxisUi(axis);
+      applyCropRegionFromState();
+    };
+
+    const selectAll = (event: Event) => {
+      const target = event.currentTarget as HTMLInputElement;
+      target.select();
+    };
+
+    const commitOnEnter = (event: KeyboardEvent, handler: () => void) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      handler();
+      (event.currentTarget as HTMLInputElement).blur();
+    };
+
+    leftInput.addEventListener("focus", selectAll);
+    rightInput.addEventListener("focus", selectAll);
+    leftInput.addEventListener("click", selectAll);
+    rightInput.addEventListener("click", selectAll);
+
+    // Index input commits are Enter-only to avoid accidental updates while typing.
+    leftInput.addEventListener("keydown", (event) => commitOnEnter(event, onLeftChange));
+    rightInput.addEventListener("keydown", (event) => commitOnEnter(event, onRightChange));
 
     const mergedSlider = minInput.closest(".crop-merged-slider") as HTMLElement | null;
     if (mergedSlider) {
@@ -262,7 +381,7 @@ function setupCropControls() {
           maxInput.value = `${nextMax}`;
         }
 
-        syncCropFill(axis);
+        syncCropAxisUi(axis);
         applyCropRegionFromState();
       };
 
@@ -313,6 +432,23 @@ function setupCropControls() {
   }
 
   const resetCropBtn = document.getElementById("crop-reset-button") as HTMLButtonElement | null;
+  const copyCropBtn = document.getElementById("crop-copy-indeces-button") as HTMLButtonElement | null;
+
+  copyCropBtn?.addEventListener("click", async () => {
+    const x = getCropAxisBounds("x");
+    const y = getCropAxisBounds("y");
+    const z = getCropAxisBounds("z");
+    const indexing = `[${z.left}:${z.right}, ${y.left}:${y.right}, ${x.left}:${x.right}]`;
+    navigator.clipboard.writeText(indexing);
+
+
+    const originalLabel = copyCropBtn.textContent || "Copy indeces";
+    copyCropBtn.textContent = "Copied";
+    window.setTimeout(() => {
+      copyCropBtn.textContent = originalLabel;
+    }, 1000);
+  });
+
   resetCropBtn?.addEventListener("click", () => {
     myState.cropXmin = 0;
     myState.cropXmax = 1;
@@ -843,12 +979,29 @@ function updateZSliceUI(volume: Volume) {
   const zSlider = document.getElementById("zSlider") as HTMLInputElement;
   const zInput = document.getElementById("zValue") as HTMLInputElement;
 
-  const totalZSlices = volume.imageInfo.volumeSize.z;
-  zSlider.max = `${totalZSlices - 1}`;
-  zInput.max = `${totalZSlices - 1}`;
+  const oldMax = Number(zSlider.max);
+  const oldValue = Number(zSlider.value);
 
-  zInput.value = `${Math.floor(totalZSlices / 2)}`;
-  zSlider.value = `${Math.floor(totalZSlices / 2)}`;
+  const totalZSlices = volume.imageInfo.volumeSize.z;
+  const newMax = Math.max(0, totalZSlices - 1);
+
+  zSlider.max = `${newMax}`;
+  zInput.max = `${newMax}`;
+
+  const hasValidPreviousSlice = Number.isFinite(oldValue) && Number.isFinite(oldMax) && oldMax >= 0;
+
+  let nextValue = Math.floor(totalZSlices / 2);
+  if (hasValidPreviousSlice) {
+    const normalized = oldMax > 0 && Number.isFinite(oldValue) ? oldValue / oldMax : 0;
+    nextValue = Math.round(normalized * newMax);
+  }
+  nextValue = Math.max(0, Math.min(newMax, nextValue));
+
+  zInput.value = `${nextValue}`;
+  zSlider.value = `${nextValue}`;
+
+  // Keep renderer state in sync with remapped or clamped UI value.
+  goToZSlice(nextValue);
 }
 
 function showChannelUI(volume: Volume) {
@@ -1189,6 +1342,7 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
 
   if (currentVol.isLoaded()) {
     console.log("currentVol with name " + currentVol.name + " is loaded");
+    setVolumeLoading(false);
   }
   updateChannelUI(currentVol, channelIndex)
 
@@ -1197,6 +1351,11 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
     histogramSelection.maxBin = hmax;
   }
   drawHistogramFromVolume(v, channelIndex);
+
+  // Scale-level changes update dimensions asynchronously; refresh crop and slice controls to match new bounds.
+  syncCropInputsFromState();
+  updateZSliceUI(v);
+
   updateOmeZarrScaleSelect(v);
   view3D.redraw();
 }
@@ -1255,7 +1414,7 @@ function playTimeSeries(onNewFrameCallback: () => void) {
     const nextFrame = (myState.currentFrame + 1) % getNumberOfTimesteps();
 
     // TODO would be real nice if this were an `await`-able promise instead...
-    view3D.setTime(myState.volume, nextFrame, (vol) => {
+    void view3D.setTime(myState.volume, nextFrame, (vol) => {
       if (vol.isLoaded()) {
         myState.currentFrame = nextFrame;
         onNewFrameCallback();
@@ -1283,7 +1442,7 @@ function goToFrame(targetFrame: number): boolean {
     return false;
   }
 
-  view3D.setTime(myState.volume, targetFrame);
+  void view3D.setTime(myState.volume, targetFrame);
   myState.currentFrame = targetFrame;
   return true;
 }
@@ -1697,6 +1856,9 @@ function main() {
     return;
   }
   view3D = new View3d({ parentElement: el });
+  view3D.setLoadStartHandler(() => {
+    setVolumeLoading(true);
+  });
   view3D.setBackgroundColor(myState.backgroundColor);
 
   if (turntableParam === "true") {
@@ -1819,6 +1981,17 @@ function main() {
     }
   });
 
+
+  view3D.setLoadErrorHandler((_volume, error) => {
+    setVolumeLoading(false);
+    if (error instanceof Error && error.message === SCALE_TOO_LARGE_MESSAGE) {
+      setScaleError(SCALE_TOO_LARGE_MESSAGE);
+      if (omeZarrScaleSelect) {
+        omeZarrScaleSelect.value = "auto";
+      }
+    }
+  });
+
   const sourceUrlInput =
     (document.getElementById("source-url-input") as HTMLInputElement | null);
   const sourceForm =
@@ -1896,6 +2069,7 @@ function main() {
       console.error(error);
       setSourceError(getSourceLoadErrorMessage(source, error));
       clearView();
+      setVolumeLoading(false);
     }
   };
 
@@ -2124,7 +2298,7 @@ function main() {
   sceneInput?.addEventListener("change", () => {
     if (myState.loader.length > 1 && myState.scene !== sceneInput.valueAsNumber) {
       myState.scene = sceneInput.valueAsNumber;
-      loadVolume(myState.currentImageName, new LoadSpec(), myState.loader[myState.scene]);
+      void loadVolume(myState.currentImageName, new LoadSpec(), myState.loader[myState.scene]);
     }
   });
 
