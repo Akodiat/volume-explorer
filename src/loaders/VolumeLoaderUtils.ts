@@ -74,7 +74,7 @@ export function computePackedAtlasDims(z: number, tw: number, th: number): Vecto
     nextrows = Math.ceil(z / nextcols);
     ratio = (nextcols * tw) / (nextrows * th);
   }
-  return new Vector2(nrows, ncols);
+  return new Vector2(ncols, nrows);
 }
 
 function doesSpatialDimensionFitInAtlas(

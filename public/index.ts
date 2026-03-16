@@ -38,7 +38,7 @@ const PLAYBACK_INTERVAL = 80;
 
 const TEST_DATA: Record<string, TestDataSpec> = {
   zarrQimEscargot: {
-    url: "https://platform.qim.dk/qim-public/Escargot/Escargot.zarr",
+    url: "https://platform.qim.dk/qim-public/escargot/escargot.zarr",
     type: VolumeFileFormat.ZARR,
   },
   omeTiff: {
@@ -177,6 +177,12 @@ const sliceIndexByAxis: Record<CropAxis, number> = {
   z: 0,
 };
 
+const sliceMaxIndexByAxis: Record<CropAxis, number> = {
+  x: 0,
+  y: 0,
+  z: 0,
+};
+
 const CROP_AXES: CropAxis[] = ["x", "y", "z"];
 
 const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey }> = {
@@ -201,6 +207,29 @@ function getAxisVoxelCount(axis: CropAxis): number {
 
 function getAxisMaxSliceIndex(axis: CropAxis): number {
   return Math.max(0, getAxisVoxelCount(axis) - 1);
+}
+
+function getAxisMaxSliceIndexForVolume(volume: Volume, axis: CropAxis): number {
+  const axisValue = volume.imageInfo?.volumeSize?.[axis];
+  const value = Number(axisValue ?? 1);
+  const voxelCount = Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  return Math.max(0, voxelCount - 1);
+}
+
+function remapSliceIndicesForRescaledVolume(volume: Volume) {
+  for (const axis of ["x", "y"] as CropAxis[]) {
+    const previousMax = sliceMaxIndexByAxis[axis];
+    const nextMax = getAxisMaxSliceIndexForVolume(volume, axis);
+
+    let nextIndex = sliceIndexByAxis[axis];
+    if (previousMax !== nextMax) {
+      const normalized = previousMax > 0 ? sliceIndexByAxis[axis] / previousMax : 0;
+      nextIndex = Math.round(normalized * nextMax);
+    }
+
+    sliceIndexByAxis[axis] = Math.max(0, Math.min(nextMax, nextIndex));
+    sliceMaxIndexByAxis[axis] = nextMax;
+  }
 }
 
 function clampSliceIndex(axis: CropAxis, sliceIndex: number): number {
@@ -246,6 +275,23 @@ function getEffectiveAxisCropBounds(axis: CropAxis): { min: number; max: number 
   };
 }
 
+function getStateAxisCropBounds(axis: CropAxis): { min: number; max: number } {
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  return {
+    min: myState[minKey] as number,
+    max: myState[maxKey] as number,
+  };
+}
+
+function getEffectiveAxisLoadBounds(axis: CropAxis): { min: number; max: number } {
+  // In 2D slice view, the active axis is a visual plane selector, not a load-ROI constraint.
+  if (activeSliceAxis === axis) {
+    return { min: 0, max: 1 };
+  }
+  return getStateAxisCropBounds(axis);
+}
+
 function updateSliceViewCurrentLabel() {
   const currentLabel = document.getElementById("slice-view-current") as HTMLSpanElement | null;
   if (!currentLabel) {
@@ -261,11 +307,44 @@ function updateSliceViewCurrentLabel() {
   currentLabel.textContent = `${axisUpper}:${sliceIndexByAxis[activeSliceAxis]}`;
 }
 
-function updateCropRowVisibility() {
-  for (const axis of CROP_AXES) {
-    const row = document.getElementById(`crop-row-${axis}`);
-    row?.classList.toggle("hidden", activeSliceAxis === axis);
+function setUiSectionDisabled(section: HTMLElement | null, isDisabled: boolean) {
+  if (!section) {
+    return;
   }
+  section.classList.toggle("is-disabled", isDisabled);
+  section.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+}
+
+function setCropAxisControlsDisabled(axis: CropAxis, isDisabled: boolean) {
+  const row = document.getElementById(`crop-row-${axis}`) as HTMLElement | null;
+  setUiSectionDisabled(row, isDisabled);
+
+  const inputIds = [`crop-${axis}-min`, `crop-${axis}-max`, `crop-${axis}-left`, `crop-${axis}-right`];
+  for (const id of inputIds) {
+    const input = document.getElementById(id) as HTMLInputElement | null;
+    if (input) {
+      input.disabled = isDisabled;
+    }
+  }
+
+  const mergedSlider = row?.querySelector(".crop-merged-slider") as HTMLElement | null;
+  mergedSlider?.classList.toggle("is-disabled", isDisabled);
+}
+
+function updateSliceModeControlStates() {
+  const isSliceMode = activeSliceAxis !== null;
+
+  for (const axis of CROP_AXES) {
+    setCropAxisControlsDisabled(axis, activeSliceAxis === axis);
+  }
+
+  const globalOpacitySlider = document.getElementById("global-opacity-slider") as HTMLInputElement | null;
+  if (globalOpacitySlider) {
+    globalOpacitySlider.disabled = isSliceMode;
+  }
+
+  const globalOpacitySection = globalOpacitySlider?.closest(".controls-item") as HTMLElement | null;
+  setUiSectionDisabled(globalOpacitySection, isSliceMode);
 }
 
 function updateSliceSelectorUI() {
@@ -282,7 +361,7 @@ function updateSliceSelectorUI() {
   if (!activeSliceAxis) {
     panel.classList.add("hidden");
     updateSliceViewCurrentLabel();
-    updateCropRowVisibility();
+    updateSliceModeControlStates();
     return;
   }
 
@@ -301,7 +380,7 @@ function updateSliceSelectorUI() {
   slider.value = `${nextValue}`;
 
   updateSliceViewCurrentLabel();
-  updateCropRowVisibility();
+  updateSliceModeControlStates();
 }
 
 function setActiveSliceMode(mode: CameraMode) {
@@ -336,25 +415,50 @@ function resetSliceIndicesForVolume(volume: Volume) {
     const axisCount = Math.max(1, Math.floor(volume.imageInfo.volumeSize[axis]));
     const maxIndex = axisCount - 1;
     sliceIndexByAxis[axis] = Math.floor(maxIndex * 0.5);
+    sliceMaxIndexByAxis[axis] = maxIndex;
   }
 
   updateSliceSelectorUI();
 }
 
 function applyCropRegionFromState() {
-  const xBounds = getEffectiveAxisCropBounds("x");
-  const yBounds = getEffectiveAxisCropBounds("y");
-  const zBounds = getEffectiveAxisCropBounds("z");
+  const xDisplayBounds = getEffectiveAxisCropBounds("x");
+  const yDisplayBounds = getEffectiveAxisCropBounds("y");
+  const zDisplayBounds = getEffectiveAxisCropBounds("z");
 
-  view3D.updateCropRegion(
+  const xLoadBounds = getEffectiveAxisLoadBounds("x");
+  const yLoadBounds = getEffectiveAxisLoadBounds("y");
+  const zLoadBounds = getEffectiveAxisLoadBounds("z");
+
+  const displayMatchesLoad =
+    xDisplayBounds.min === xLoadBounds.min &&
+    xDisplayBounds.max === xLoadBounds.max &&
+    yDisplayBounds.min === yLoadBounds.min &&
+    yDisplayBounds.max === yLoadBounds.max &&
+    zDisplayBounds.min === zLoadBounds.min &&
+    zDisplayBounds.max === zLoadBounds.max;
+
+  void view3D.updateCropRegion(
     myState.volume,
-    xBounds.min,
-    xBounds.max,
-    yBounds.min,
-    yBounds.max,
-    zBounds.min,
-    zBounds.max
+    xLoadBounds.min,
+    xLoadBounds.max,
+    yLoadBounds.min,
+    yLoadBounds.max,
+    zLoadBounds.min,
+    zLoadBounds.max
   );
+
+  if (!displayMatchesLoad) {
+    view3D.updateClipRegion(
+      myState.volume,
+      xDisplayBounds.min,
+      xDisplayBounds.max,
+      yDisplayBounds.min,
+      yDisplayBounds.max,
+      zDisplayBounds.min,
+      zDisplayBounds.max
+    );
+  }
 }
 
 function syncCropFill(axis: CropAxis) {
@@ -1150,6 +1254,7 @@ function updateZSliceUI(volume: Volume) {
 
   const totalZSlices = volume.imageInfo.volumeSize.z;
   const newMax = Math.max(0, totalZSlices - 1);
+  sliceMaxIndexByAxis.z = newMax;
 
   zSlider.max = `${newMax}`;
   zInput.max = `${newMax}`;
@@ -1162,6 +1267,9 @@ function updateZSliceUI(volume: Volume) {
     nextValue = Math.round(normalized * newMax);
   }
   nextValue = Math.max(0, Math.min(newMax, nextValue));
+
+  // Keep the generic slice-selector state in sync with the dedicated Z-slice controls.
+  sliceIndexByAxis.z = nextValue;
 
   zInput.value = `${nextValue}`;
   zSlider.value = `${nextValue}`;
@@ -1519,8 +1627,11 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
   drawHistogramFromVolume(v, channelIndex);
 
   // Scale-level changes update dimensions asynchronously; refresh crop and slice controls to match new bounds.
+  remapSliceIndicesForRescaledVolume(v);
   syncCropInputsFromState();
   updateZSliceUI(v);
+  updateSliceSelectorUI();
+  applyCropRegionFromState();
 
   updateOmeZarrScaleSelect(v);
   view3D.redraw();
@@ -2081,9 +2192,13 @@ function main() {
       return true;
     }
 
-    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), myState.cropXmax - myState.cropXmin);
-    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), myState.cropYmax - myState.cropYmin);
-    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), myState.cropZmax - myState.cropZmin);
+    const xLoadBounds = getEffectiveAxisLoadBounds("x");
+    const yLoadBounds = getEffectiveAxisLoadBounds("y");
+    const zLoadBounds = getEffectiveAxisLoadBounds("z");
+
+    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), xLoadBounds.max - xLoadBounds.min);
+    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), yLoadBounds.max - yLoadBounds.min);
+    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), zLoadBounds.max - zLoadBounds.min);
 
     const x = Math.max(1, Math.ceil(dims.shape[4] * cropX));
     const y = Math.max(1, Math.ceil(dims.shape[3] * cropY));

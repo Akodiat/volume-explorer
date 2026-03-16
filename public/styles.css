@@ -198,6 +198,30 @@ body {
   z-index: 4;
 }
 
+#controls-panel [aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+#controls-panel [aria-disabled="true"],
+#controls-panel [aria-disabled="true"] *,
+.crop-merged-slider.is-disabled,
+.crop-merged-slider.is-disabled *,
+.opacity-range:disabled,
+.slice-selector-slider:active::-webkit-slider-thumb,
+.crop-handle:active::-webkit-slider-thumb,
+.opacity-range:active::-webkit-slider-thumb,
+.slice-selector-slider:active::-moz-range-thumb,
+.crop-handle:active::-moz-range-thumb,
+.opacity-range:active::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
+
+
+.crop-merged-slider.is-disabled {
+  pointer-events: none;
+}
+
 .crop-handle::-webkit-slider-runnable-track,
 .opacity-range::-webkit-slider-runnable-track {
   background: transparent;
