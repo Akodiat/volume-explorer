@@ -58,6 +58,7 @@ export class View3d {
   private exposure: number;
   private volumeRenderMode: RenderMode.PATHTRACE | RenderMode.RAYMARCH;
   private renderUpdateListener?: (iteration: number) => void;
+  private loadStartHandler?: (volume: Volume) => void;
   private loadErrorHandler?: (volume: Volume, error: unknown) => void;
   private image?: VolumeDrawable;
 
@@ -279,6 +280,10 @@ export class View3d {
     }
   }
 
+  onVolumeLoadStart(volume: Volume): void {
+    this.loadStartHandler?.(volume);
+  }
+
   // do fixups for when the volume has had a new empty channel added.
   onVolumeChannelAdded(volume: Volume, newChannelIndex: number): void {
     this.image?.onChannelAdded(newChannelIndex);
@@ -290,6 +295,10 @@ export class View3d {
 
   setLoadErrorHandler(handler: ((volume: Volume, error: unknown) => void) | undefined): void {
     this.loadErrorHandler = handler;
+  }
+
+  setLoadStartHandler(handler: ((volume: Volume) => void) | undefined): void {
+    this.loadStartHandler = handler;
   }
 
   setTime(volume: Volume, time: number, onChannelLoaded?: PerChannelCallback): Promise<void> {
@@ -786,9 +795,10 @@ export class View3d {
     ymax: number,
     zmin: number,
     zmax: number
-  ): void {
-    this.image?.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax, true);
+  ): Promise<void> {
+    const loadPromise = this.image?.updateClipRegion(xmin, xmax, ymin, ymax, zmin, zmax, true);
     this.redraw();
+    return loadPromise ?? Promise.resolve();
   }
 
   /**

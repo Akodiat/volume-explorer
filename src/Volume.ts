@@ -5,12 +5,13 @@ import Histogram from "./Histogram.js";
 import { Lut } from "./Lut.js";
 import { getColorByChannelIndex } from "./constants/colors.js";
 import { type IVolumeLoader, LoadSpec, type PerChannelCallback } from "./loaders/IVolumeLoader.js";
-import { MAX_ATLAS_EDGE, pickLevelToLoadUnscaled } from "./loaders/VolumeLoaderUtils.js";
+import { MAX_ATLAS_EDGE, pickLevelToLoadUnscaled, type PickLevelResult } from "./loaders/VolumeLoaderUtils.js";
 import type { NumberType, TypedArray } from "./types.js";
 import { type ImageInfo, CImageInfo, defaultImageInfo } from "./ImageInfo.js";
 import type { VolumeDims } from "./VolumeDims.js";
 
 interface VolumeDataObserver {
+  onVolumeLoadStart: (vol: Volume) => void;
   onVolumeData: (vol: Volume, batch: number[]) => void;
   onVolumeChannelAdded: (vol: Volume, idx: number) => void;
   onVolumeLoadError: (vol: Volume, error: unknown) => void;
@@ -180,15 +181,25 @@ export default class Volume {
     this.loadSpecRequired = { ...this.loadSpecRequired, ...required };
     let shouldReload = this.mustLoadNewData();
 
-    // If we're not reloading due to required data changes, check if we should load a new scale level
-    if (!shouldReload && this.mayLoadNewScaleLevel()) {
-      // Loaders should cache loaded dimensions so that this call blocks no more than once per valid `LoadSpec`.
+    if (shouldReload || this.mayLoadNewScaleLevel()) {
       const dims = await this.loadScaleLevelDims();
       if (dims) {
         const dimsZYX = dims.map(({ shape }): [number, number, number] => [shape[2], shape[3], shape[4]]);
-        // Determine which scale level *would* be loaded, and see if it's different than what we have
-        const levelToLoad = pickLevelToLoadUnscaled(this.loadSpecRequired, dimsZYX);
-        shouldReload = this.imageInfo.multiscaleLevel !== levelToLoad;
+        const result: PickLevelResult = pickLevelToLoadUnscaled(this.loadSpecRequired, dimsZYX);
+
+        if (result.explicitLevelTooLarge) {
+          this.loadSpecRequired.useExplicitLevel = false;
+          this.volumeDataObservers.forEach((observer) =>
+            observer.onVolumeLoadError(
+              this,
+              new Error("Selected scale level is too large for this device. Reverted to Auto.")
+            )
+          );
+        }
+
+        if (!shouldReload) {
+          shouldReload = this.imageInfo.multiscaleLevel !== result.level;
+        }
       }
     }
 
@@ -212,6 +223,7 @@ export default class Volume {
    */
   private async loadNewData(onChannelLoaded?: PerChannelCallback): Promise<void> {
     this.setUnloaded();
+    this.volumeDataObservers.forEach((observer) => observer.onVolumeLoadStart(this));
     this.loadSpec = {
       ...this.loadSpecRequired,
       subregion: this.loadSpecRequired.subregion.clone(),

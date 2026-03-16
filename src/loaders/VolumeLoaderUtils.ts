@@ -135,10 +135,23 @@ export function scaleMultipleDimsToSubregion(subregion: Box3, dims: ZYX[]): ZYX[
  *
  *  This function assumes that `spatialDimsZYX` has already been appropriately scaled to match `loadSpec`'s `subregion`.
  */
-export function pickLevelToLoadUnscaled(loadSpec: LoadSpec, spatialDimsZYX: ZYX[]): number {
+export type PickLevelResult = { level: number; explicitLevelTooLarge: boolean };
+
+export function pickLevelToLoadUnscaled(loadSpec: LoadSpec, spatialDimsZYX: ZYX[]): PickLevelResult {
+  let explicitLevelTooLarge = false;
+
   if (loadSpec.useExplicitLevel && loadSpec.multiscaleLevel !== undefined) {
     // clamp to actual allowed level range
-    return Math.max(0, Math.min(spatialDimsZYX.length - 1, loadSpec.multiscaleLevel));
+    const explicitLevel = Math.max(0, Math.min(spatialDimsZYX.length - 1, loadSpec.multiscaleLevel));
+    if (doesSpatialDimensionFitInAtlas(spatialDimsZYX[explicitLevel], loadSpec.maxAtlasEdge)) {
+      return { level: explicitLevel, explicitLevelTooLarge: false };
+    }
+
+    console.warn(
+      `Explicit scale level ${explicitLevel} does not fit in atlas (max edge: ${loadSpec.maxAtlasEdge}). ` +
+        `Reverting to auto selection.`
+    );
+    explicitLevelTooLarge = true;
   }
 
   let levelToLoad = estimateLevelForAtlas(spatialDimsZYX, loadSpec.maxAtlasEdge);
@@ -148,7 +161,7 @@ export function pickLevelToLoadUnscaled(loadSpec: LoadSpec, spatialDimsZYX: ZYX[
     levelToLoad = Math.max(0, Math.min(spatialDimsZYX.length - 1, levelToLoad));
 
     if (doesSpatialDimensionFitInAtlas(spatialDimsZYX[levelToLoad], loadSpec.maxAtlasEdge)) {
-      return levelToLoad;
+      return { level: levelToLoad, explicitLevelTooLarge };
     }
   }
 
@@ -165,7 +178,7 @@ export function pickLevelToLoadUnscaled(loadSpec: LoadSpec, spatialDimsZYX: ZYX[
   );
   console.log("All available levels: ", spatialDimsZYX);
 
-  return levelToLoad;
+  return { level: levelToLoad, explicitLevelTooLarge };
 }
 
 /**
@@ -174,7 +187,7 @@ export function pickLevelToLoadUnscaled(loadSpec: LoadSpec, spatialDimsZYX: ZYX[
  * `pickLevelToLoadUnscaled`, and additionally scales the dimensions of the scale levels to account for the
  * `LoadSpec`'s `subregion` property.
  */
-export function pickLevelToLoad(loadSpec: LoadSpec, spatialDimsZYX: ZYX[]): number {
+export function pickLevelToLoad(loadSpec: LoadSpec, spatialDimsZYX: ZYX[]): PickLevelResult {
   const scaledDims = scaleMultipleDimsToSubregion(loadSpec.subregion, spatialDimsZYX);
   return pickLevelToLoadUnscaled(loadSpec, scaledDims);
 }

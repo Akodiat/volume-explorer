@@ -1,8 +1,4 @@
 import type { UserConfig } from "vite";
-
-// We want to be able to import glsl shaders without url decorations like ?raw.
-// This is because we still build the distribution with babel/tsc and don't want
-// to use nonstandard import syntax there.
 import glsl from "vite-plugin-glsl";
 
 export default {
@@ -11,8 +7,11 @@ export default {
     APP_VERSION: JSON.stringify(process.env.npm_package_version),
   },
   server: {
+    host: true,           // allow external connections (needed for reverse proxies)
+    allowedHosts: true,   // allow any hostname (nginx already controls access)
     open: "public/index.html",
   },
+  base: "/",              // ensures all JS/CSS assets use absolute paths
   worker: {
     format: "es",
   },

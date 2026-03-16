@@ -35,6 +35,12 @@
                 <label for="ome-zarr-scale-select" class="col-form-label mb-0 text-nowrap">
                   <span class="scale-level-highlight">Current scale</span>
                   <span class="scale-level-highlight">(<span id="ome-zarr-scale-level-value">-</span>)</span>
+                  <span
+                    id="ome-zarr-scale-loading-indicator"
+                    class="scale-loading-indicator"
+                    aria-hidden="true"
+                    title="Loading scale data"
+                  ></span>
                 </label>
               </div>
               <div>
@@ -97,12 +103,16 @@
 
           <div class="d-flex align-items-center justify-content-between mb-2">
             <span>Cropping</span>
-            <button id="crop-reset-button" type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+            <div class="d-flex align-items-center gap-2">
+              <button id="crop-copy-indeces-button" type="button" class="btn btn-outline-secondary btn-sm">Copy indeces</button>
+              <button id="crop-reset-button" type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+            </div>
           </div>
 
           <div class="vstack gap-2">
             <div id="crop-row-x" class="d-flex align-items-center gap-2 flex-nowrap">
               <label for="crop-x-min" class="col-form-label fw-semibold mb-0 text-nowrap">X</label>
+              <input id="crop-x-left" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="0" aria-label="Crop X start index" />
               <div class="flex-grow-1">
                 <div class="crop-merged-slider">
                   <div class="crop-track"></div>
@@ -111,10 +121,12 @@
                   <input id="crop-x-max" class="crop-handle form-range" type="range" min="0" max="1" step="0.001" value="1" />
                 </div>
               </div>
+              <input id="crop-x-right" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="1" aria-label="Crop X end index" />
             </div>
 
             <div id="crop-row-y" class="d-flex align-items-center gap-2 flex-nowrap">
               <label for="crop-y-min" class="col-form-label fw-semibold mb-0 text-nowrap">Y</label>
+              <input id="crop-y-left" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="0" aria-label="Crop Y start index" />
               <div class="flex-grow-1">
                 <div class="crop-merged-slider">
                   <div class="crop-track"></div>
@@ -123,10 +135,12 @@
                   <input id="crop-y-max" class="crop-handle form-range" type="range" min="0" max="1" step="0.001" value="1" />
                 </div>
               </div>
+              <input id="crop-y-right" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="1" aria-label="Crop Y end index" />
             </div>
 
             <div id="crop-row-z" class="d-flex align-items-center gap-2 flex-nowrap">
               <label for="crop-z-min" class="col-form-label fw-semibold mb-0 text-nowrap">Z</label>
+              <input id="crop-z-left" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="0" aria-label="Crop Z start index" />
               <div class="flex-grow-1">
                 <div class="crop-merged-slider">
                   <div class="crop-track"></div>
@@ -135,6 +149,7 @@
                   <input id="crop-z-max" class="crop-handle form-range" type="range" min="0" max="1" step="0.001" value="1" />
                 </div>
               </div>
+              <input id="crop-z-right" class="crop-dimension-value form-control form-control-sm" type="number" min="0" step="1" value="1" aria-label="Crop Z end index" />
             </div>
           </div>
         </div>

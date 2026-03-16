@@ -22,10 +22,6 @@ export class LoadSpec {
   /** Subregion of volume to load. If not specified, the entire volume is loaded. Specify as floats between 0-1. */
   subregion = new Box3(new Vector3(0, 0, 0), new Vector3(1, 1, 1));
   channels?: number[];
-  /** Treat multiscaleLevel literally and don't use other constraints to change it.
-   * By default we will try to load the best level based on the maxAtlasEdge and scaleLevelBias,
-   * so this is false.
-   */
   useExplicitLevel = false;
 }
 
@@ -171,6 +167,9 @@ export abstract class ThreadableVolumeLoader implements IVolumeLoader {
         volume.updateDimensions();
       }
       volume.loadSpec = { ...loadSpec, ...spec };
+      if (imageInfo?.multiscaleLevel !== undefined) {
+        volume.loadSpec.multiscaleLevel = imageInfo.multiscaleLevel;
+      }
     };
 
     const onChannelData: RawChannelDataCallback = (channelIndices, dtypes, dataArrays, ranges, atlasDims) => {
