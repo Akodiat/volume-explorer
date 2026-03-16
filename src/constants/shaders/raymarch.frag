@@ -238,6 +238,19 @@ vec4 integrateVolume(vec4 eye_o,vec4 eye_d,
   return C;
 }
 
+vec4 sampleOrthoSlice(vec3 eyeRay_o, vec3 eyeRay_d, float tnear, float tfar, float clipFar, sampler2D textureAtlas) {
+  float tfarClipped = min(tfar, tnear + clipFar);
+  float tSample = 0.5 * (tnear + tfarClipped);
+  vec4 pos = vec4(eyeRay_o + eyeRay_d * tSample, 1.0);
+
+  // Map from object-space box coordinates [-0.5, 0.5] into atlas sample coordinates [0, 1].
+  pos.xyz = (pos.xyz - (-0.5)) / ((0.5) - (-0.5));
+
+  vec4 col = interpolationEnabled ? sampleAtlasLinear(textureAtlas, pos) : sampleAtlasNearest(textureAtlas, pos);
+  col.xyz *= BRIGHTNESS;
+  return clamp(col, 0.0, 1.0);
+}
+
 void main() {
   gl_FragColor = vec4(0.0);
   vec2 vUv = gl_FragCoord.xy/iResolution.xy;
@@ -307,6 +320,11 @@ void main() {
     if (tMesh < tfar) {
       clipFar = tMesh - tnear;
     }
+  }
+
+  if (isOrtho != 0.0) {
+    gl_FragColor = sampleOrthoSlice(eyeRay_o, eyeRay_d, tnear, tfar, clipFar, textureAtlas);
+    return;
   }
 
   vec4 C = integrateVolume(vec4(eyeRay_o,1.0), vec4(eyeRay_d,0.0),
