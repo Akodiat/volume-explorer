@@ -48,22 +48,15 @@ const TEST_DATA: Record<string, TestDataSpec> = {
 };
 
 let view3D: View3d;
-let isVolumeLoading = false;
-
-function updateScaleLoadingIndicator() {
-  const loadingEl = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
-  if (!loadingEl) {
-    return;
-  }
-
-  const isLoading = isVolumeLoading;
-  loadingEl.classList.toggle("is-visible", isLoading);
-  loadingEl.setAttribute("aria-hidden", isLoading ? "false" : "true");
-}
 
 function setVolumeLoading(isLoading: boolean) {
-  isVolumeLoading = isLoading;
-  updateScaleLoadingIndicator();
+  document.body.classList.toggle("volume-loading", isLoading);
+
+  const overlayIndicator = document.getElementById("volume-loading-overlay") as HTMLElement | null;
+  overlayIndicator?.setAttribute("aria-hidden", isLoading ? "false" : "true");
+
+  const inlineIndicator = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
+  inlineIndicator?.setAttribute("aria-hidden", isLoading ? "false" : "true");
 }
 
 const loaderContext = new VolumeLoaderContext(CACHE_MAX_SIZE, CONCURRENCY_LIMIT, PREFETCH_CONCURRENCY_LIMIT);

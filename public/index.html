@@ -232,7 +232,13 @@
           <input type="number" id="sceneValue" min="0" max="0" value="0" />
         </div>
       </div>
-      <div id="viewer-panel" class="panel"></div>
+      <div id="viewer-panel" class="panel">
+        <div id="volume-loading-overlay" class="volume-loading-overlay" aria-hidden="true">
+          <div class="volume-loading-overlay-content" role="status" aria-live="polite">
+            <span class="volume-loading-overlay-spinner" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
   <script type="module" src="index.ts"></script>

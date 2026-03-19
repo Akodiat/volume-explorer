@@ -90,6 +90,7 @@ body {
 }
 
 #viewer-panel {
+  position: relative;
   flex: 2 1 0;
 }
 
@@ -110,14 +111,53 @@ body {
   height: 0.95rem;
   margin-left: 0.4rem;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: white;
   vertical-align: text-top;
   animation: scale-loading-spin 0.8s linear infinite;
 }
 
-#controls-panel .scale-loading-indicator.is-visible {
+body.volume-loading #controls-panel .scale-loading-indicator {
   display: inline-block;
+}
+
+body.volume-loading {
+  cursor: progress;
+}
+
+body.volume-loading #controls-panel {
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+
+.volume-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: darkgrey;
+  z-index: 99;
+}
+
+body.volume-loading #viewer-panel .volume-loading-overlay {
+  display: grid;
+}
+
+.volume-loading-overlay-content {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.volume-loading-overlay-spinner {
+  width: 10rem;
+  height: 10rem;
+  border-radius: 50%;
+  border: 0.5rem solid rgba(255, 255, 255, 0.2);
+  border-top-color: white;
+  animation: scale-loading-spin 0.9s linear infinite;
 }
 
 @keyframes scale-loading-spin {
