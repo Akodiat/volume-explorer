@@ -2062,7 +2062,7 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   ctx.lineTo(x1, plotH);
   ctx.stroke();
 
-  const labelFontSize = 64;
+  const labelFontSize = 80;
   const labelPadH = 10;
   const labelPadV = 6;
   ctx.font = `${labelFontSize}px sans-serif`;
@@ -2075,12 +2075,12 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
     const boxX = Math.min(Math.max(0, xHandle - boxW / 2), w - boxW);
     const boxY = plotH / 2 - boxH / 2;
 
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillStyle = "#000000";
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, 8);
     ctx.fill();
 
-    ctx.fillStyle = handleColor;
+    ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(labelText, boxX + boxW / 2, boxY + boxH / 2);
