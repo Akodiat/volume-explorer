@@ -47,6 +47,12 @@ const TEST_DATA: Record<string, TestDataSpec> = {
   },
 };
 
+const DEFAULT_COLORS = {
+  background: [0.9, 0.9, 0.9] as [number, number, number],
+  foreground: [0, 170, 255] as [number, number, number],
+  boundingBox: [0.3, 0.3, 0.3] as [number, number, number],
+};
+
 let view3D: View3d;
 
 function setVolumeLoading(isLoading: boolean) {
@@ -126,9 +132,9 @@ const myState: State = {
   showScaleBar: true,
 
   showBoundingBox: false,
-  boundingBoxColor: [0.3, 0.3, 0.3],
-  backgroundColor: [0.9, 0.9, 0.9],
-  foregroundColor: [0, 170, 255],
+  boundingBoxColor: DEFAULT_COLORS.boundingBox,
+  backgroundColor: DEFAULT_COLORS.background,
+  foregroundColor: DEFAULT_COLORS.foreground,
   flipX: 1,
   flipY: 1,
   flipZ: 1,
@@ -2138,6 +2144,23 @@ function rgb01ToHex(color: [number, number, number]): string {
   return rgb255ToHex([color[0] * 255, color[1] * 255, color[2] * 255]);
 }
 
+function syncColorInputsToState() {
+  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
+  if (boundingBoxColorInput) {
+    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
+  }
+
+  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
+  if (backgroundColorInput) {
+    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
+  }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput) {
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
+  }
+}
+
 function main() {
   const urlParams = new URLSearchParams(window.location.search);
   const hiddenParam = urlParams.get("hidden")?.trim().toLowerCase();
@@ -2158,6 +2181,7 @@ function main() {
     setVolumeLoading(true);
   });
   view3D.setBackgroundColor(myState.backgroundColor);
+  syncColorInputsToState();
 
   if (turntableParam === "true") {
     const appLayout = document.querySelector(".flex-layout");
@@ -2167,21 +2191,6 @@ function main() {
     appLayout?.addEventListener("mouseleave", () => {
       view3D.setAutoRotate(false);
     });
-  }
-
-  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
-  if (boundingBoxColorInput) {
-    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
-  }
-
-  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
-  if (backgroundColorInput) {
-    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
-  }
-
-  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
-  if (objectColorInput) {
-    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
   }
 
   const scaleError = document.getElementById("scale-error") as HTMLParagraphElement | null;
