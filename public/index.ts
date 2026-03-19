@@ -2366,6 +2366,7 @@ function main() {
     try {
       setScaleError();
       setSourceError();
+      setVolumeLoading(true);
       await loadTestData("url", { type, url: source });
     } catch (error) {
       console.error(error);

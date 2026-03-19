@@ -152,8 +152,8 @@ body.volume-loading #viewer-panel .volume-loading-overlay {
 }
 
 .volume-loading-overlay-spinner {
-  width: 10rem;
-  height: 10rem;
+  width: 5rem;
+  height: 5rem;
   border-radius: 50%;
   border: 0.5rem solid rgba(255, 255, 255, 0.2);
   border-top-color: white;
