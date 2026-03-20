@@ -1,9 +1,6 @@
 {
   "name": "@qim3d/volume-explorer",
-  "version": "1.0.7",
-  "bin": {
-    "volume-explorer": "./bin/volume-explorer.js"
-  },
+  "version": "1.2.0",
   "description": "QIM Center volume explorer based on vol-e core.",
   "main": "es/index.js",
   "type": "module",
@@ -11,7 +8,6 @@
   "types": "es/types/index.d.ts",
   "files": [
     "es",
-    "src",
     "public",
     "README.md",
     "package.json"
