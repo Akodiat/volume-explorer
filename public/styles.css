@@ -90,6 +90,7 @@ body {
 }
 
 #viewer-panel {
+  position: relative;
   flex: 2 1 0;
 }
 
@@ -110,14 +111,48 @@ body {
   height: 0.95rem;
   margin-left: 0.4rem;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: white;
   vertical-align: text-top;
   animation: scale-loading-spin 0.8s linear infinite;
 }
 
-#controls-panel .scale-loading-indicator.is-visible {
+body.volume-loading #controls-panel .scale-loading-indicator {
   display: inline-block;
+}
+
+body.volume-loading {
+  cursor: progress;
+}
+
+.volume-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: darkgrey;
+  z-index: 99;
+  pointer-events: none;
+}
+
+body.volume-loading #viewer-panel .volume-loading-overlay {
+  display: grid;
+}
+
+.volume-loading-overlay-content {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.volume-loading-overlay-spinner {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  border: 0.5rem solid rgba(255, 255, 255, 0.2);
+  border-top-color: white;
+  animation: scale-loading-spin 0.9s linear infinite;
 }
 
 @keyframes scale-loading-spin {
@@ -198,6 +233,30 @@ body {
   z-index: 4;
 }
 
+#controls-panel [aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+#controls-panel [aria-disabled="true"],
+#controls-panel [aria-disabled="true"] *,
+.crop-merged-slider.is-disabled,
+.crop-merged-slider.is-disabled *,
+.opacity-range:disabled,
+.slice-selector-slider:active::-webkit-slider-thumb,
+.crop-handle:active::-webkit-slider-thumb,
+.opacity-range:active::-webkit-slider-thumb,
+.slice-selector-slider:active::-moz-range-thumb,
+.crop-handle:active::-moz-range-thumb,
+.opacity-range:active::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
+
+
+.crop-merged-slider.is-disabled {
+  pointer-events: none;
+}
+
 .crop-handle::-webkit-slider-runnable-track,
 .opacity-range::-webkit-slider-runnable-track {
   background: transparent;
@@ -246,6 +305,13 @@ body {
   --histogram-handle-width: 20;
   --histogram-handle-width-hover: 32;
   --histogram-handle-hover-speed: 0.2;
+  --histogram-label-pad-x: 4;
+  --histogram-label-pad-y: 6;
+  --histogram-label-radius: 4;
+  --histogram-label-color: #303030;
+  --histogram-label-opacity: 0.8;
+  --histogram-label-font-size: 12px;
+  --histogram-label-font-family: monospace;
   width: 100%;
   display: block;
 }
@@ -261,12 +327,89 @@ body {
   background: var(--opacity-fill);
 }
 
+.slice-view-buttons .btn {
+  border-color: thistle;
+  color: white;
+  min-width: 2.5rem;
+}
+
+.slice-view-buttons .btn:hover,
+.slice-view-buttons .btn:focus {
+  border-color: thistle;
+  background-color: thistle;
+  color: white;
+  box-shadow: none;
+}
+
+.slice-view-buttons .btn.is-active {
+  background-color: plum;
+  border-color: plum;
+  color: white;
+}
+
+.slice-view-current {
+  color: plum;
+  font-weight: 700;
+}
+
+.slice-selector-panel {
+  border: 1px solid thistle;
+  border-radius: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.slice-selector-bound {
+  min-width: 2.2rem;
+  text-align: center;
+  color: thistle;
+  font-weight: 600;
+}
+
+.slice-selector-slider {
+  --slice-track: thistle;
+  --slice-fill: plum;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.slice-selector-slider::-webkit-slider-runnable-track {
+  background: var(--slice-track);
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.slice-selector-slider::-moz-range-track {
+  background: var(--slice-track);
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.slice-selector-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid plum;
+  background: white;
+  cursor: grab;
+  margin-top: -3px;
+}
+
+.slice-selector-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid plum;
+  background: white;
+  cursor: grab;
+}
+
+.slice-selector-slider:active::-webkit-slider-thumb,
 .crop-handle:active::-webkit-slider-thumb,
 .opacity-range:active::-webkit-slider-thumb {
   cursor: grabbing;
 }
 
-
+.slice-selector-slider:active::-moz-range-thumb,
 .crop-handle:active::-moz-range-thumb,
 .opacity-range:active::-moz-range-thumb {
   cursor: grabbing;

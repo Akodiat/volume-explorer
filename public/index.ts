@@ -38,7 +38,7 @@ const PLAYBACK_INTERVAL = 80;
 
 const TEST_DATA: Record<string, TestDataSpec> = {
   zarrQimEscargot: {
-    url: "https://platform.qim.dk/qim-public/Escargot/Escargot.zarr",
+    url: "https://platform.qim.dk/qim-public/escargot/escargot.zarr",
     type: VolumeFileFormat.ZARR,
   },
   omeTiff: {
@@ -47,23 +47,22 @@ const TEST_DATA: Record<string, TestDataSpec> = {
   },
 };
 
+const DEFAULT_COLORS = {
+  background: [0.9, 0.9, 0.9] as [number, number, number],
+  foreground: [0, 170, 255] as [number, number, number],
+  boundingBox: [0.3, 0.3, 0.3] as [number, number, number],
+};
+
 let view3D: View3d;
-let isVolumeLoading = false;
-
-function updateScaleLoadingIndicator() {
-  const loadingEl = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
-  if (!loadingEl) {
-    return;
-  }
-
-  const isLoading = isVolumeLoading;
-  loadingEl.classList.toggle("is-visible", isLoading);
-  loadingEl.setAttribute("aria-hidden", isLoading ? "false" : "true");
-}
 
 function setVolumeLoading(isLoading: boolean) {
-  isVolumeLoading = isLoading;
-  updateScaleLoadingIndicator();
+  document.body.classList.toggle("volume-loading", isLoading);
+
+  const overlayIndicator = document.getElementById("volume-loading-overlay") as HTMLElement | null;
+  overlayIndicator?.setAttribute("aria-hidden", isLoading ? "false" : "true");
+
+  const inlineIndicator = document.getElementById("ome-zarr-scale-loading-indicator") as HTMLElement | null;
+  inlineIndicator?.setAttribute("aria-hidden", isLoading ? "false" : "true");
 }
 
 const loaderContext = new VolumeLoaderContext(CACHE_MAX_SIZE, CONCURRENCY_LIMIT, PREFETCH_CONCURRENCY_LIMIT);
@@ -133,9 +132,9 @@ const myState: State = {
   showScaleBar: true,
 
   showBoundingBox: false,
-  boundingBoxColor: [0.3, 0.3, 0.3],
-  backgroundColor: [0.9, 0.9, 0.9],
-  foregroundColor: [0, 170, 255],
+  boundingBoxColor: DEFAULT_COLORS.boundingBox,
+  backgroundColor: DEFAULT_COLORS.background,
+  foregroundColor: DEFAULT_COLORS.foreground,
   flipX: 1,
   flipY: 1,
   flipZ: 1,
@@ -166,8 +165,24 @@ const histogramSelection = {
 };
 
 type CropAxis = "x" | "y" | "z";
+type CameraMode = "X" | "Y" | "Z" | "3D";
 
 type CropStateKey = "cropXmin" | "cropXmax" | "cropYmin" | "cropYmax" | "cropZmin" | "cropZmax";
+
+let activeSliceAxis: CropAxis | null = null;
+const sliceIndexByAxis: Record<CropAxis, number> = {
+  x: 0,
+  y: 0,
+  z: 0,
+};
+
+const sliceMaxIndexByAxis: Record<CropAxis, number> = {
+  x: 0,
+  y: 0,
+  z: 0,
+};
+
+const CROP_AXES: CropAxis[] = ["x", "y", "z"];
 
 const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey }> = {
   x: { min: "cropXmin", max: "cropXmax" },
@@ -176,19 +191,273 @@ const cropAxisStateKeys: Record<CropAxis, { min: CropStateKey; max: CropStateKey
 };
 
 function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
   return Math.min(1, Math.max(0, value));
 }
 
+function getAxisVoxelCount(axis: CropAxis): number {
+  const axisValue = myState.volume.imageInfo?.volumeSize?.[axis];
+  const value = Number(axisValue ?? 1);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+}
+
+function getAxisMaxSliceIndex(axis: CropAxis): number {
+  return Math.max(0, getAxisVoxelCount(axis) - 1);
+}
+
+function getAxisMaxSliceIndexForVolume(volume: Volume, axis: CropAxis): number {
+  const axisValue = volume.imageInfo?.volumeSize?.[axis];
+  const value = Number(axisValue ?? 1);
+  const voxelCount = Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  return Math.max(0, voxelCount - 1);
+}
+
+function remapSliceIndicesForRescaledVolume(volume: Volume) {
+  for (const axis of ["x", "y"] as CropAxis[]) {
+    const previousMax = sliceMaxIndexByAxis[axis];
+    const nextMax = getAxisMaxSliceIndexForVolume(volume, axis);
+
+    let nextIndex = sliceIndexByAxis[axis];
+    if (previousMax !== nextMax) {
+      const normalized = previousMax > 0 ? sliceIndexByAxis[axis] / previousMax : 0;
+      nextIndex = Math.round(normalized * nextMax);
+    }
+
+    sliceIndexByAxis[axis] = Math.max(0, Math.min(nextMax, nextIndex));
+    sliceMaxIndexByAxis[axis] = nextMax;
+  }
+}
+
+function clampSliceIndex(axis: CropAxis, sliceIndex: number): number {
+  const maxSliceIndex = getAxisMaxSliceIndex(axis);
+  return Math.min(maxSliceIndex, Math.max(0, Math.round(sliceIndex)));
+}
+
+function getSliceCropBounds(axis: CropAxis, sliceIndex: number): { min: number; max: number } {
+  const voxelCount = getAxisVoxelCount(axis);
+  const maxIndex = getAxisMaxSliceIndex(axis);
+  const clampedIndex = clampSliceIndex(axis, sliceIndex);
+  sliceIndexByAxis[axis] = clampedIndex;
+
+  const normalized = maxIndex > 0 ? clampedIndex / maxIndex : 0;
+  const sliceThickness = Math.max(1 / voxelCount, 0.000001);
+  const halfThickness = sliceThickness * 0.5;
+
+  let min = normalized - halfThickness;
+  let max = normalized + halfThickness;
+
+  if (min < 0) {
+    max = Math.min(1, max - min);
+    min = 0;
+  }
+  if (max > 1) {
+    min = Math.max(0, min - (max - 1));
+    max = 1;
+  }
+
+  return { min, max };
+}
+
+function getEffectiveAxisCropBounds(axis: CropAxis): { min: number; max: number } {
+  if (activeSliceAxis === axis) {
+    return getSliceCropBounds(axis, sliceIndexByAxis[axis]);
+  }
+
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  return {
+    min: myState[minKey] as number,
+    max: myState[maxKey] as number,
+  };
+}
+
+function getStateAxisCropBounds(axis: CropAxis): { min: number; max: number } {
+  const minKey = cropAxisStateKeys[axis].min;
+  const maxKey = cropAxisStateKeys[axis].max;
+  return {
+    min: myState[minKey] as number,
+    max: myState[maxKey] as number,
+  };
+}
+
+function getEffectiveAxisLoadBounds(axis: CropAxis): { min: number; max: number } {
+  // In 2D slice view, the active axis is a visual plane selector, not a load-ROI constraint.
+  if (activeSliceAxis === axis) {
+    return { min: 0, max: 1 };
+  }
+  return getStateAxisCropBounds(axis);
+}
+
+function updateSliceViewCurrentLabel() {
+  const currentLabel = document.getElementById("slice-view-current") as HTMLSpanElement | null;
+  if (!currentLabel) {
+    return;
+  }
+
+  if (!activeSliceAxis) {
+    currentLabel.textContent = "";
+    return;
+  }
+
+  const axisUpper = activeSliceAxis.toUpperCase();
+  currentLabel.textContent = `${axisUpper}:${sliceIndexByAxis[activeSliceAxis]}`;
+}
+
+function setUiSectionDisabled(section: HTMLElement | null, isDisabled: boolean) {
+  if (!section) {
+    return;
+  }
+  section.classList.toggle("is-disabled", isDisabled);
+  section.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+}
+
+function setCropAxisControlsDisabled(axis: CropAxis, isDisabled: boolean) {
+  const row = document.getElementById(`crop-row-${axis}`) as HTMLElement | null;
+  setUiSectionDisabled(row, isDisabled);
+
+  const inputIds = [`crop-${axis}-min`, `crop-${axis}-max`, `crop-${axis}-left`, `crop-${axis}-right`];
+  for (const id of inputIds) {
+    const input = document.getElementById(id) as HTMLInputElement | null;
+    if (input) {
+      input.disabled = isDisabled;
+    }
+  }
+
+  const mergedSlider = row?.querySelector(".crop-merged-slider") as HTMLElement | null;
+  mergedSlider?.classList.toggle("is-disabled", isDisabled);
+}
+
+function updateSliceModeControlStates() {
+  const isSliceMode = activeSliceAxis !== null;
+
+  for (const axis of CROP_AXES) {
+    setCropAxisControlsDisabled(axis, activeSliceAxis === axis);
+  }
+
+  const globalOpacitySlider = document.getElementById("global-opacity-slider") as HTMLInputElement | null;
+  if (globalOpacitySlider) {
+    globalOpacitySlider.disabled = isSliceMode;
+  }
+
+  const globalOpacitySection = globalOpacitySlider?.closest(".controls-item") as HTMLElement | null;
+  setUiSectionDisabled(globalOpacitySection, isSliceMode);
+}
+
+function updateSliceSelectorUI() {
+  const panel = document.getElementById("slice-selector-panel") as HTMLElement | null;
+  const axisLabel = document.getElementById("slice-selector-axis") as HTMLLabelElement | null;
+  const minLabel = document.getElementById("slice-selector-min") as HTMLSpanElement | null;
+  const maxLabel = document.getElementById("slice-selector-max") as HTMLSpanElement | null;
+  const slider = document.getElementById("slice-selector-slider") as HTMLInputElement | null;
+
+  if (!panel || !axisLabel || !minLabel || !maxLabel || !slider) {
+    return;
+  }
+
+  if (!activeSliceAxis) {
+    panel.classList.add("hidden");
+    updateSliceViewCurrentLabel();
+    updateSliceModeControlStates();
+    return;
+  }
+
+  panel.classList.remove("hidden");
+
+  const axisUpper = activeSliceAxis.toUpperCase();
+  const maxIndex = getAxisMaxSliceIndex(activeSliceAxis);
+  const nextValue = clampSliceIndex(activeSliceAxis, sliceIndexByAxis[activeSliceAxis]);
+  sliceIndexByAxis[activeSliceAxis] = nextValue;
+
+  axisLabel.textContent = axisUpper;
+  minLabel.textContent = "0";
+  maxLabel.textContent = `${maxIndex}`;
+  slider.min = "0";
+  slider.max = `${maxIndex}`;
+  slider.value = `${nextValue}`;
+
+  updateSliceViewCurrentLabel();
+  updateSliceModeControlStates();
+}
+
+function setActiveSliceMode(mode: CameraMode) {
+  activeSliceAxis = mode === "3D" ? null : (mode.toLowerCase() as CropAxis);
+  updateSliceSelectorUI();
+  applyCropRegionFromState();
+}
+
+function setupSliceSelectorControls() {
+  const slider = document.getElementById("slice-selector-slider") as HTMLInputElement | null;
+  slider?.addEventListener("input", () => {
+    if (!activeSliceAxis) {
+      return;
+    }
+
+    const nextSliceIndex = clampSliceIndex(activeSliceAxis, slider.valueAsNumber);
+    sliceIndexByAxis[activeSliceAxis] = nextSliceIndex;
+
+    if (activeSliceAxis === "z") {
+      goToZSlice(nextSliceIndex);
+    }
+
+    updateSliceSelectorUI();
+    applyCropRegionFromState();
+  });
+
+  updateSliceSelectorUI();
+}
+
+function resetSliceIndicesForVolume(volume: Volume) {
+  for (const axis of CROP_AXES) {
+    const axisCount = Math.max(1, Math.floor(volume.imageInfo.volumeSize[axis]));
+    const maxIndex = axisCount - 1;
+    sliceIndexByAxis[axis] = Math.floor(maxIndex * 0.5);
+    sliceMaxIndexByAxis[axis] = maxIndex;
+  }
+
+  updateSliceSelectorUI();
+}
+
 function applyCropRegionFromState() {
+  const xDisplayBounds = getEffectiveAxisCropBounds("x");
+  const yDisplayBounds = getEffectiveAxisCropBounds("y");
+  const zDisplayBounds = getEffectiveAxisCropBounds("z");
+
+  const xLoadBounds = getEffectiveAxisLoadBounds("x");
+  const yLoadBounds = getEffectiveAxisLoadBounds("y");
+  const zLoadBounds = getEffectiveAxisLoadBounds("z");
+
+  const displayMatchesLoad =
+    xDisplayBounds.min === xLoadBounds.min &&
+    xDisplayBounds.max === xLoadBounds.max &&
+    yDisplayBounds.min === yLoadBounds.min &&
+    yDisplayBounds.max === yLoadBounds.max &&
+    zDisplayBounds.min === zLoadBounds.min &&
+    zDisplayBounds.max === zLoadBounds.max;
+
   void view3D.updateCropRegion(
     myState.volume,
-    myState.cropXmin,
-    myState.cropXmax,
-    myState.cropYmin,
-    myState.cropYmax,
-    myState.cropZmin,
-    myState.cropZmax
+    xLoadBounds.min,
+    xLoadBounds.max,
+    yLoadBounds.min,
+    yLoadBounds.max,
+    zLoadBounds.min,
+    zLoadBounds.max
   );
+
+  if (!displayMatchesLoad) {
+    view3D.updateClipRegion(
+      myState.volume,
+      xDisplayBounds.min,
+      xDisplayBounds.max,
+      yDisplayBounds.min,
+      yDisplayBounds.max,
+      zDisplayBounds.min,
+      zDisplayBounds.max
+    );
+  }
 }
 
 function syncCropFill(axis: CropAxis) {
@@ -443,10 +712,10 @@ function setupCropControls() {
 
 
     const originalLabel = copyCropBtn.textContent || "Copy indeces";
-    copyCropBtn.textContent = "Copied";
+    copyCropBtn.textContent = `Copied ${indexing}`;
     window.setTimeout(() => {
       copyCropBtn.textContent = originalLabel;
-    }, 1000);
+    }, 3000);
   });
 
   resetCropBtn?.addEventListener("click", () => {
@@ -984,6 +1253,7 @@ function updateZSliceUI(volume: Volume) {
 
   const totalZSlices = volume.imageInfo.volumeSize.z;
   const newMax = Math.max(0, totalZSlices - 1);
+  sliceMaxIndexByAxis.z = newMax;
 
   zSlider.max = `${newMax}`;
   zInput.max = `${newMax}`;
@@ -996,6 +1266,9 @@ function updateZSliceUI(volume: Volume) {
     nextValue = Math.round(normalized * newMax);
   }
   nextValue = Math.max(0, Math.min(newMax, nextValue));
+
+  // Keep the generic slice-selector state in sync with the dedicated Z-slice controls.
+  sliceIndexByAxis.z = nextValue;
 
   zInput.value = `${nextValue}`;
   zSlider.value = `${nextValue}`;
@@ -1326,8 +1599,8 @@ function loadImageData(jsonData: ImageInfo, volumeData: Uint8Array[]) {
 
 function onChannelDataArrived(v: Volume, channelIndex: number) {
   const currentVol = v; // myState.volume;
-  const LUT_MIN_PERCENTILE = 0.925;
-  const LUT_MAX_PERCENTILE = 0.99;
+  const LUT_MIN_PERCENTILE = 0.5;
+  const LUT_MAX_PERCENTILE = 0.983;
   const hist = v.getHistogram(channelIndex);
   const hmin = hist.findBinOfPercentile(LUT_MIN_PERCENTILE);
   const hmax = hist.findBinOfPercentile(LUT_MAX_PERCENTILE);
@@ -1353,8 +1626,11 @@ function onChannelDataArrived(v: Volume, channelIndex: number) {
   drawHistogramFromVolume(v, channelIndex);
 
   // Scale-level changes update dimensions asynchronously; refresh crop and slice controls to match new bounds.
+  remapSliceIndicesForRescaledVolume(v);
   syncCropInputsFromState();
   updateZSliceUI(v);
+  updateSliceSelectorUI();
+  applyCropRegionFromState();
 
   updateOmeZarrScaleSelect(v);
   view3D.redraw();
@@ -1394,6 +1670,7 @@ function onVolumeCreated(name: string, volume: Volume) {
   updateTimeUI();
   updateScenesUI();
   updateZSliceUI(myState.volume);
+  resetSliceIndicesForVolume(myState.volume);
   syncCropInputsFromState();
   applyCropRegionFromState();
   showChannelUI(myState.volume);
@@ -1553,7 +1830,7 @@ async function loadTestData(name: string, testdata: TestDataSpec) {
   const loadSpec = new LoadSpec();
   if (testdata.type === VolumeFileFormat.ZARR) {
     const scaleParam = new URLSearchParams(window.location.search).get("scale")?.trim().toLowerCase();
-    if (scaleParam === "min") {
+    if (scaleParam === "last") {
       loadSpec.useExplicitLevel = true;
       loadSpec.multiscaleLevel = Number.MAX_SAFE_INTEGER;
     } else {
@@ -1763,6 +2040,18 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   const handleColor = canvasStyles.getPropertyValue("--histogram-handle-color").trim() || "#000000";
   const handleWidth = Number(canvasStyles.getPropertyValue("--histogram-handle-width").trim()) || 4;
   const handleWidthHover = Number(canvasStyles.getPropertyValue("--histogram-handle-width-hover").trim()) || 6;
+  const displayRect = canvas.getBoundingClientRect();
+  const canvasScaleX = displayRect.width > 0 ? w / displayRect.width : 1;
+  const canvasScaleY = displayRect.height > 0 ? h / displayRect.height : 1;
+  const labelPadH = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-pad-x").trim()) || 10) * canvasScaleX;
+  const labelPadV = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-pad-y").trim()) || 6) * canvasScaleY;
+  const labelColor = canvasStyles.getPropertyValue("--histogram-label-color").trim() || "#303030";
+  const labelOpacity = Math.min(
+    1,
+    Math.max(0, parseFloat(canvasStyles.getPropertyValue("--histogram-label-opacity").trim()) || 1)
+  );
+  const labelFontSize = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-font-size").trim()) || 80) * canvasScaleY;
+  const labelFontFamily = canvasStyles.getPropertyValue("--histogram-label-font-family").trim() || "monospace";
   const handleWidthDelta = handleWidthHover - handleWidth;
 
   ctx.strokeStyle = handleColor;
@@ -1784,6 +2073,33 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   ctx.moveTo(x1, 0);
   ctx.lineTo(x1, plotH);
   ctx.stroke();
+
+  ctx.font = labelFontSize + "px " + labelFontFamily;
+
+  const drawHandleLabel = (binIndex: number, xHandle: number) => {
+    const labelText = `${Math.round(hist.getValueFromBinIndex(binIndex))}`;
+    const textW = ctx.measureText(labelText).width;
+    const boxW = textW + labelPadH * 2;
+    const boxH = labelFontSize + labelPadV * 2;
+    const boxX = Math.min(Math.max(0, xHandle - boxW / 2), w - boxW);
+    const boxY = plotH / 2 - boxH / 2;
+
+    ctx.globalAlpha = labelOpacity;
+    ctx.fillStyle = labelColor;
+    ctx.beginPath();
+    const labelRadius = parseFloat(canvasStyles.getPropertyValue("--histogram-label-radius").trim()) || 8;
+    ctx.roundRect(boxX, boxY, boxW, boxH, labelRadius * Math.min(canvasScaleX, canvasScaleY));
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(labelText, boxX + boxW / 2, boxY + boxH / 2);
+  };
+
+  drawHandleLabel(minB, x0);
+  drawHandleLabel(maxB, x1);
 
   // axes and ticks
   ctx.strokeStyle = "#6a6a6a";
@@ -1840,6 +2156,23 @@ function rgb01ToHex(color: [number, number, number]): string {
   return rgb255ToHex([color[0] * 255, color[1] * 255, color[2] * 255]);
 }
 
+function syncColorInputsToState() {
+  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
+  if (boundingBoxColorInput) {
+    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
+  }
+
+  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
+  if (backgroundColorInput) {
+    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
+  }
+
+  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
+  if (objectColorInput) {
+    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
+  }
+}
+
 function main() {
   const urlParams = new URLSearchParams(window.location.search);
   const hiddenParam = urlParams.get("hidden")?.trim().toLowerCase();
@@ -1860,6 +2193,7 @@ function main() {
     setVolumeLoading(true);
   });
   view3D.setBackgroundColor(myState.backgroundColor);
+  syncColorInputsToState();
 
   if (turntableParam === "true") {
     const appLayout = document.querySelector(".flex-layout");
@@ -1869,21 +2203,6 @@ function main() {
     appLayout?.addEventListener("mouseleave", () => {
       view3D.setAutoRotate(false);
     });
-  }
-
-  const boundingBoxColorInput = document.getElementById("boundingBoxColor") as HTMLInputElement | null;
-  if (boundingBoxColorInput) {
-    boundingBoxColorInput.value = rgb01ToHex(myState.boundingBoxColor);
-  }
-
-  const backgroundColorInput = document.getElementById("backgroundColor") as HTMLInputElement | null;
-  if (backgroundColorInput) {
-    backgroundColorInput.value = rgb01ToHex(myState.backgroundColor);
-  }
-
-  const objectColorInput = document.getElementById("objectColor") as HTMLInputElement | null;
-  if (objectColorInput) {
-    objectColorInput.value = rgb255ToHex(myState.foregroundColor);
   }
 
   const scaleError = document.getElementById("scale-error") as HTMLParagraphElement | null;
@@ -1914,9 +2233,13 @@ function main() {
       return true;
     }
 
-    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), myState.cropXmax - myState.cropXmin);
-    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), myState.cropYmax - myState.cropYmin);
-    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), myState.cropZmax - myState.cropZmin);
+    const xLoadBounds = getEffectiveAxisLoadBounds("x");
+    const yLoadBounds = getEffectiveAxisLoadBounds("y");
+    const zLoadBounds = getEffectiveAxisLoadBounds("z");
+
+    const cropX = Math.max(1 / Math.max(1, dims.shape[4]), xLoadBounds.max - xLoadBounds.min);
+    const cropY = Math.max(1 / Math.max(1, dims.shape[3]), yLoadBounds.max - yLoadBounds.min);
+    const cropZ = Math.max(1 / Math.max(1, dims.shape[2]), zLoadBounds.max - zLoadBounds.min);
 
     const x = Math.max(1, Math.ceil(dims.shape[4] * cropX));
     const y = Math.max(1, Math.ceil(dims.shape[3] * cropY));
@@ -2064,6 +2387,7 @@ function main() {
     try {
       setScaleError();
       setSourceError();
+      setVolumeLoading(true);
       await loadTestData("url", { type, url: source });
     } catch (error) {
       console.error(error);
@@ -2111,22 +2435,33 @@ function main() {
     }
   });
 
-  const xBtn = document.getElementById("X");
-  xBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("X");
-  });
-  const yBtn = document.getElementById("Y");
-  yBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("Y");
-  });
-  const zBtn = document.getElementById("Z");
-  zBtn?.addEventListener("click", () => {
-    view3D.setCameraMode("Z");
-  });
-  const d3Btn = document.getElementById("3D");
-  d3Btn?.addEventListener("click", () => {
-    view3D.setCameraMode("3D");
-  });
+  const cameraModeButtons: Record<CameraMode, HTMLButtonElement | null> = {
+    X: document.getElementById("X") as HTMLButtonElement | null,
+    Y: document.getElementById("Y") as HTMLButtonElement | null,
+    Z: document.getElementById("Z") as HTMLButtonElement | null,
+    "3D": document.getElementById("3D") as HTMLButtonElement | null,
+  };
+
+  const setActiveCameraModeButton = (mode: CameraMode) => {
+    (Object.keys(cameraModeButtons) as CameraMode[]).forEach((cameraMode) => {
+      cameraModeButtons[cameraMode]?.classList.toggle("is-active", cameraMode === mode);
+    });
+  };
+
+  const bindCameraModeButton = (mode: CameraMode) => {
+    cameraModeButtons[mode]?.addEventListener("click", () => {
+      view3D.setCameraMode(mode);
+      setActiveCameraModeButton(mode);
+      setActiveSliceMode(mode);
+    });
+  };
+
+  bindCameraModeButton("X");
+  bindCameraModeButton("Y");
+  bindCameraModeButton("Z");
+  bindCameraModeButton("3D");
+  setActiveCameraModeButton("3D");
+  setActiveSliceMode("3D");
   const rotBtn = document.getElementById("rotBtn");
   rotBtn?.addEventListener("click", () => {
     myState.isTurntable = !myState.isTurntable;
@@ -2524,6 +2859,7 @@ function main() {
 
   setupColorizeControls();
   setupCropControls();
+  setupSliceSelectorControls();
   setupGui(el);
 
   void loadFromCurrentSource(true);
