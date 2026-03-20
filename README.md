@@ -6,13 +6,37 @@ It is implemented on top of the [vole-core library](https://github.com/allen-cel
 
 ## Installation
 
-The tool can be used by cloning the repository and ran using npm.
+Install globally to get the `volume-explorer` command on your `PATH`:
+
+`npm install -g @qim3d/volume-explorer`
+
+`volume-explorer`
+
+You can also run it without a global install:
+
+`npx @qim3d/volume-explorer`
+
+To open a dataset directly:
+
+`volume-explorer https://platform.qim.dk/qim-public/escargot/escargot.zarr`
+
+or
+
+`volume-explorer --src https://platform.qim.dk/qim-public/escargot/escargot.zarr`
+
+The published package now ships a production Vite build, including the worker and shader bundles used for volumetric rendering.
+
+## Development
 
 `git clone git@github.com:qim-center/vole-core.git`
 
 `npm install`
 
 `npm run dev`
+
+For a production-style local run that uses the packaged CLI and built assets:
+
+`npm start`
 
 ## Features
 - Volumetric data exploration
@@ -24,7 +48,7 @@ The tool can be used by cloning the repository and ran using npm.
 
 ![Landing](https://github.com/qim-center/vole-core/blob/mvp/docs/screenshots/qim-ve-landing.png)
 ![High def](https://github.com/qim-center/vole-core/blob/mvp/docs/screenshots/qim-ve-high-def.png)
-   
+
 ### Advanced
 
 There are two hidden menus for advanced users, accessible by pressing `Ctrl + Alt + 1` and `Ctrl + Alt + 2`.
