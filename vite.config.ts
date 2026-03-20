@@ -1,17 +1,28 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { UserConfig } from "vite";
 import glsl from "vite-plugin-glsl";
 
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+const appRoot = resolve(projectRoot, "public");
+
 export default {
+  root: appRoot,
+  publicDir: false,
   plugins: [glsl()],
   define: {
-    APP_VERSION: JSON.stringify(process.env.npm_package_version),
+    APP_VERSION: JSON.stringify(process.env.npm_package_version ?? "development"),
   },
   server: {
-    host: true,           // allow external connections (needed for reverse proxies)
-    allowedHosts: true,   // allow any hostname (nginx already controls access)
-    open: "public/index.html",
+    host: true,
+    allowedHosts: true,
+    open: "/index.html",
   },
-  base: "/",              // ensures all JS/CSS assets use absolute paths
+  build: {
+    outDir: resolve(projectRoot, "dist/app"),
+    emptyOutDir: true,
+  },
+  base: "./",
   worker: {
     format: "es",
   },
