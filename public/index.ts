@@ -2040,6 +2040,18 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   const handleColor = canvasStyles.getPropertyValue("--histogram-handle-color").trim() || "#000000";
   const handleWidth = Number(canvasStyles.getPropertyValue("--histogram-handle-width").trim()) || 4;
   const handleWidthHover = Number(canvasStyles.getPropertyValue("--histogram-handle-width-hover").trim()) || 6;
+  const displayRect = canvas.getBoundingClientRect();
+  const canvasScaleX = displayRect.width > 0 ? w / displayRect.width : 1;
+  const canvasScaleY = displayRect.height > 0 ? h / displayRect.height : 1;
+  const labelPadH = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-pad-x").trim()) || 10) * canvasScaleX;
+  const labelPadV = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-pad-y").trim()) || 6) * canvasScaleY;
+  const labelColor = canvasStyles.getPropertyValue("--histogram-label-color").trim() || "#303030";
+  const labelOpacity = Math.min(
+    1,
+    Math.max(0, parseFloat(canvasStyles.getPropertyValue("--histogram-label-opacity").trim()) || 1)
+  );
+  const labelFontSize = (parseFloat(canvasStyles.getPropertyValue("--histogram-label-font-size").trim()) || 80) * canvasScaleY;
+  const labelFontFamily = canvasStyles.getPropertyValue("--histogram-label-font-family").trim() || "monospace";
   const handleWidthDelta = handleWidthHover - handleWidth;
 
   ctx.strokeStyle = handleColor;
@@ -2062,10 +2074,7 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
   ctx.lineTo(x1, plotH);
   ctx.stroke();
 
-  const labelFontSize = 80;
-  const labelPadH = 10;
-  const labelPadV = 6;
-  ctx.font = `${labelFontSize}px sans-serif`;
+  ctx.font = labelFontSize + "px " + labelFontFamily;
 
   const drawHandleLabel = (binIndex: number, xHandle: number) => {
     const labelText = `${Math.round(hist.getValueFromBinIndex(binIndex))}`;
@@ -2075,10 +2084,13 @@ function drawHistogramFromVolume(v: Volume, channelIndex: number) {
     const boxX = Math.min(Math.max(0, xHandle - boxW / 2), w - boxW);
     const boxY = plotH / 2 - boxH / 2;
 
-    ctx.fillStyle = "#000000";
+    ctx.globalAlpha = labelOpacity;
+    ctx.fillStyle = labelColor;
     ctx.beginPath();
-    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+    const labelRadius = parseFloat(canvasStyles.getPropertyValue("--histogram-label-radius").trim()) || 8;
+    ctx.roundRect(boxX, boxY, boxW, boxH, labelRadius * Math.min(canvasScaleX, canvasScaleY));
     ctx.fill();
+    ctx.globalAlpha = 1;
 
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";

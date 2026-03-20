@@ -305,6 +305,13 @@ body.volume-loading #viewer-panel .volume-loading-overlay {
   --histogram-handle-width: 20;
   --histogram-handle-width-hover: 32;
   --histogram-handle-hover-speed: 0.2;
+  --histogram-label-pad-x: 4;
+  --histogram-label-pad-y: 6;
+  --histogram-label-radius: 4;
+  --histogram-label-color: #303030;
+  --histogram-label-opacity: 0.8;
+  --histogram-label-font-size: 12px;
+  --histogram-label-font-family: monospace;
   width: 100%;
   display: block;
 }
