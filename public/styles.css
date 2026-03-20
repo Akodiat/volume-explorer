@@ -125,12 +125,6 @@ body.volume-loading {
   cursor: progress;
 }
 
-body.volume-loading #controls-panel {
-  opacity: 0.6;
-  pointer-events: none;
-  user-select: none;
-}
-
 .volume-loading-overlay {
   position: absolute;
   inset: 0;
@@ -138,6 +132,7 @@ body.volume-loading #controls-panel {
   place-items: center;
   background: darkgrey;
   z-index: 99;
+  pointer-events: none;
 }
 
 body.volume-loading #viewer-panel .volume-loading-overlay {

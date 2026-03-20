@@ -712,10 +712,10 @@ function setupCropControls() {
 
 
     const originalLabel = copyCropBtn.textContent || "Copy indeces";
-    copyCropBtn.textContent = "Copied";
+    copyCropBtn.textContent = `Copied ${indexing}`;
     window.setTimeout(() => {
       copyCropBtn.textContent = originalLabel;
-    }, 1000);
+    }, 3000);
   });
 
   resetCropBtn?.addEventListener("click", () => {
