@@ -34,7 +34,9 @@
     "lint": "eslint --config ./.eslintrc.json --ignore-path ./.eslintignore --ext .js --ext .ts ./src",
     "test": "vitest run",
     "transpileES": "babel src --out-dir es --extensions .js,.ts --ignore **/*.test.ts",
-    "typeCheck": "tsc -p tsconfig.json --noEmit"
+    "typeCheck": "tsc -p tsconfig.json --noEmit",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "author": "Daniel Toloudis",
   "license": "MIT",
@@ -76,6 +78,7 @@
     "eslint": "^8.19.0",
     "eslint-config-prettier": "^8.5.0",
     "file-loader": "^6.2.0",
+    "gh-pages": "^6.3.0",
     "html-webpack-plugin": "^5.3.2",
     "husky": "^7.0.1",
     "jsdom": "^25.0.1",
