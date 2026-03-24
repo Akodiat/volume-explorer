@@ -441,8 +441,10 @@ export class View3d {
   }
 
   onStartControls(): void {
-    if (this.volumeRenderMode !== RenderMode.PATHTRACE) {
-      // TODO: VR display requires a running renderloop
+    if (
+      this.volumeRenderMode !== RenderMode.PATHTRACE ||
+      this.canvas3d.xrButton.sessionActive()
+    ) {
       this.canvas3d.startRenderLoop();
     }
     this.image?.onStartControls();
@@ -455,8 +457,11 @@ export class View3d {
   onEndControls(): void {
     this.image?.onEndControls();
     // If we are pathtracing or autorotating, then keep rendering. Otherwise stop now.
-    if (this.volumeRenderMode !== RenderMode.PATHTRACE && !this.canvas3d.controls.autoRotate) {
-      // TODO: VR display requires a running renderloop
+    if (
+      this.volumeRenderMode !== RenderMode.PATHTRACE &&
+      !this.canvas3d.controls.autoRotate &&
+      !this.canvas3d.xrButton.sessionActive()
+    ) {
       this.canvas3d.stopRenderLoop();
     }
     // force a redraw.  This mainly fixes a bug with the way TrackballControls deals with wheel events.

@@ -26,6 +26,7 @@ import {
 } from "three";
 
 import TrackballControls from "./TrackballControls.js";
+import {XRButton} from "./XRButton.js";
 import Timing from "./Timing.js";
 import scaleBarSVG from "./constants/scaleBarSVG.js";
 import { isOrthographicCamera, isPerspectiveCamera, ViewportCorner, isTop, isRight } from "./types.js";
@@ -89,6 +90,7 @@ export class ThreeJsPanel {
   private orthographicCameraZ: OrthographicCamera;
   private orthoControlsZ: TrackballControls;
   public camera: PerspectiveCamera | OrthographicCamera;
+  public xrButton: any;
   private viewMode: Axis;
   public controls: TrackballControls;
   private controlEndHandler?: EventListener<Event, "end", TrackballControls>;
@@ -192,6 +194,7 @@ export class ThreeJsPanel {
       this.renderer.state.setBlending(NormalBlending);
     }
     this.renderer.localClippingEnabled = true;
+    this.renderer.xr.enabled = true;
 
     if (parentElement) {
       this.renderer.setSize(parentElement.offsetWidth, parentElement.offsetHeight);
@@ -269,6 +272,22 @@ export class ThreeJsPanel {
 
     this.setupAxisHelper();
     this.setupIndicatorElements();
+
+    this.xrButton = XRButton.createButton(this.renderer, {
+        optionalFeatures: ["unbounded"]
+    }, ()=>{
+      // On session started
+      this.startRenderLoop();
+      this.renderer.setClearAlpha(1);
+    }, ()=>{
+      // On session started
+      this.renderer.setClearAlpha(0);
+    });
+
+    (document.getElementById("viewer-panel") ?? document).appendChild(
+      (this.xrButton as HTMLElement)
+    );
+
   }
 
   updateCameraFocus(fov: number, _focalDistance: number, _apertureSize: number): void {
