@@ -1,0 +1,11 @@
+.idea
+.vscode/
+node_modules
+lib
+es
+build
+dist
+demo
+public/dist
+public/demo
+public/vole-core
